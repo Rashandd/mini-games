@@ -1,83 +1,102 @@
 <!DOCTYPE html>
 <html lang="en">
-	<head>
-		<!-- Meta -->
-		<meta charset="utf-8"/>
-		<!-- Title and Icon -->
-		<title id="pageTitle">Social Empires</title>
-		<link rel="shortcut icon" href="img/icon.gif"/>
-		<link rel="icon" type="image/png" href="img/icon.gif"/>
-		<!-- CSS -->
-		<link rel="stylesheet" href="css/facebook.css"/>
-	</head>
-	<body class="ego_wide canvas center_fixed_width_app fbx UIPage_LoggedOut liquid hideBanner Locale_en_US" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); overflow: auto;">
-		<center><img src="img/logo.png" style="width: 200px;"/></center>
-		<div class="mvl ptm uiInterstitial canvas_error_page uiInterstitialLarge uiBoxWhite">
-			<!-- HEAD TITLE -->
-			<div class="uiHeader uiHeaderBottomBorder mhl mts uiHeaderPage interstitialHeader">
-				<div class="clearfix uiHeaderTop">
-					<div>
-						<img src="img/sword.png" height="18px" style="margin-left: 5px;">
-						<h2 class="uiHeaderTitle" aria-hidden="true" style="margin-left: 2px; display: inline-block;">
-							<a href="/" style="text-decoration: none;">Social Empires </a>
-						</h2>
-						<p style="display: inline-block; margin: 0 0 4px 6px;">By the Social Emperors team ~ {{ version | default("?")}}</p>
-					</div>
-				</div>
-			</div>
-			<!-- LOGIN CONTENT -->
-			<div class="phl ptm uiInterstitialContent" style="overflow: auto; display: inblock;">
-				<br>
-				<div style="margin-left:20px; font-size:13px; float: left;">
-					{% if saves_info %}
-					<form method="post">
-						<!-- VILLAGE SELECTION -->
-						<b>Select a village</b>
-						<br><br>
-						<div style="float: left; margin-right: 4px;">
-							<img src="img/villager.png" style="height: 27px; margin-top: 0px;">
-						</div>
-						<div style="float: left">
-							<select id="USERID" name="USERID" style="height: 27px; min-width: 330px;" required>
-								{% for save in saves_info %}
-								<option value="{{save.userid}}" title="{{save.userid}}">{{save.name}} ~ level {{save.level}} ({{save.xp}} xp)</option>
-								{% endfor %}
-							</select>
-						</div>
-						<br><br>
-						<br>
-						<!-- RELEASE SELECTION -->
-						<b>Game version</b>
-						<br><br>
-						<div style="overflow: auto; display: inblock;">
-							<div style="float: left">
-								<div style="float: left; margin-right: 4px;">
-									<img src="img/knight.png" style="height: 27px; margin-top: 0px;">
-								</div>
-								<div style="float: left">
-									<select id="GAMEVERSION" name="GAMEVERSION" style="height: 24px;" required>
-										<option value="SocialEmpires0926bsec.swf">0.9.26b (Working)</option>
-										<option value="SocialEmpires1.1.5sec.swf">1.1.5 (Experimental)</option>
-										<option value="SocialEmpires1.4.07sec.swf">1.4.07 (Broken)</option>
-									</select>
-								</div>
-								<br><br> <i>Tip: 0.9.26b Contains legacy Troll Missions!</i>
-								<br><br>
-							</div>
-							<div style="float: right;">
-								<button type="submit" style="font-size:14px; height: 25px">Log in</button>
-							</div>
-						</div>
-					</form>
-					<br>
-					<!-- NEW VILLAGE -->
-					<p style="font-size:13px; display: inline;">Or </p>
-					{% endif %}
-					<p style="font-size:13px; display: inline;">
-						<b><a href="/new.html">Create a new empire</a></b>
-					</p>
-				</div>
-			</div>
-		</div>
-	</body>
+    <head>
+        <meta charset="utf-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+        <title>Mini Games — Sign In</title>
+        <meta name="description" content="Play chess, backgammon, checkers & more — free online multiplayer mini-games."/>
+        <link rel="stylesheet" href="css/modern.css"/>
+    </head>
+    <body>
+        <div class="page-container">
+            <!-- Logo -->
+            <div class="logo-container">
+                <div style="font-size: 3rem; margin-bottom: 8px;">🎮</div>
+                <div class="logo-title">Mini Games</div>
+                <div class="logo-subtitle">Play · Compete · Chat</div>
+            </div>
+
+            <!-- Main Card -->
+            <div class="glass-card">
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                    <div class="flash-msg {{ category }}">
+                        {% if category == 'error' %}⚠{% elif category == 'success' %}✓{% else %}ℹ{% endif %}
+                        {{ message }}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% endwith %}
+
+                <!-- Tabs -->
+                <div class="tab-nav">
+                    <button class="tab-btn active" onclick="switchTab('login')" id="tab-login-btn">Sign In</button>
+                    <button class="tab-btn" onclick="switchTab('register')" id="tab-register-btn">Register</button>
+                </div>
+
+                <!-- LOGIN TAB -->
+                <div class="tab-content active" id="tab-login">
+                    <form method="post" action="/login">
+                        <div class="form-group">
+                            <label class="form-label" for="login-username">Username</label>
+                            <input class="form-input" id="login-username" name="username" type="text" placeholder="Enter your username" required autofocus/>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="login-password">Password</label>
+                            <input class="form-input" id="login-password" name="password" type="password" placeholder="Enter your password" required/>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <span>Sign In</span>
+                            <div class="spinner"></div>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- REGISTER TAB -->
+                <div class="tab-content" id="tab-register">
+                    <form method="post" action="/register">
+                        <div class="form-group">
+                            <label class="form-label" for="reg-username">Username</label>
+                            <input class="form-input" id="reg-username" name="username" type="text" placeholder="Choose a username (min 3 chars)" required minlength="3"/>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="reg-password">Password</label>
+                            <input class="form-input" id="reg-password" name="password" type="password" placeholder="Create a password (min 4 chars)" required minlength="4"/>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="reg-password2">Confirm Password</label>
+                            <input class="form-input" id="reg-password2" name="password2" type="password" placeholder="Confirm your password" required/>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <span>Create Account</span>
+                            <div class="spinner"></div>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="page-footer mt-24">
+                <p>Mini Games Platform · Chess · Backgammon · Checkers & more</p>
+            </div>
+        </div>
+
+        <script>
+            function switchTab(tab) {
+                document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.getElementById('tab-' + tab).classList.add('active');
+                document.getElementById('tab-' + tab + '-btn').classList.add('active');
+            }
+
+            // Auto-switch to register tab if URL has ?register
+            if (window.location.search.includes('register')) {
+                switchTab('register');
+            }
+        </script>
+    </body>
 </html>

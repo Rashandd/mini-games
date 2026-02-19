@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Chat — Mini Games</title>
+    <link rel="stylesheet" href="/css/modern.css"/>
+    <style>
+        .chat-layout { display: flex; gap: 16px; max-width: 960px; width: 100%; margin-top: 16px; height: calc(100vh - 140px); }
+        .rooms-panel {
+            width: 260px; flex-shrink: 0; background: var(--bg-card);
+            border: 1px solid var(--border-glass); border-radius: var(--radius-lg);
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+        .rooms-header { padding: 16px; border-bottom: 1px solid var(--border-glass); font-weight: 700; font-size: 0.9rem; }
+        .rooms-list { flex: 1; overflow-y: auto; padding: 8px; }
+        .room-item {
+            padding: 10px 12px; border-radius: var(--radius-md); cursor: pointer;
+            font-size: 0.82rem; margin-bottom: 4px; transition: var(--transition-fast);
+        }
+        .room-item:hover, .room-item.active { background: rgba(108,99,255,0.1); }
+        .room-item .room-name { font-weight: 600; }
+        .room-item .room-type { font-size: 0.7rem; color: var(--text-muted); }
+
+        .msg-panel {
+            flex: 1; min-width: 0; background: var(--bg-card);
+            border: 1px solid var(--border-glass); border-radius: var(--radius-lg);
+            display: flex; flex-direction: column;
+        }
+        .msg-panel-header {
+            padding: 16px; border-bottom: 1px solid var(--border-glass);
+            font-weight: 700; font-size: 0.9rem; display: flex; justify-content: space-between;
+        }
+        .msg-list { flex: 1; overflow-y: auto; padding: 16px; }
+        .msg-bubble { margin-bottom: 12px; }
+        .msg-bubble .msg-meta { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 2px; }
+        .msg-bubble .msg-username { font-weight: 700; color: var(--accent-primary); }
+        .msg-bubble .msg-body { font-size: 0.85rem; color: var(--text-primary); line-height: 1.4; }
+        .msg-input-row { display: flex; padding: 12px; gap: 8px; border-top: 1px solid var(--border-glass); }
+        .msg-input-row input { flex: 1; }
+
+        .new-room-form { padding: 12px; border-top: 1px solid var(--border-glass); }
+
+        .empty-chat { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-muted); }
+
+        @media (max-width: 768px) {
+            .chat-layout { flex-direction: column; height: auto; }
+            .rooms-panel { width: 100%; max-height: 200px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page-container" style="padding-top: 16px;">
+        <div class="home-header" style="max-width: 960px; width: 100%;">
+            <h1>💬 Chat</h1>
+            <div class="home-nav">
+                <a href="/home" class="btn btn-secondary btn-sm">← Games</a>
+            </div>
+        </div>
+
+        <div class="chat-layout">
+            <!-- Rooms -->
+            <div class="rooms-panel">
+                <div class="rooms-header">Rooms</div>
+                <div class="rooms-list" id="rooms-list">
+                    {% for room in rooms %}
+                    <div class="room-item {% if active_room and active_room.id == room.id %}active{% endif %}"
+                         onclick="switchRoom({{ room.id }}, '{{ room.name or 'Unnamed' }}')" data-id="{{ room.id }}">
+                        <div class="room-name">
+                            {% if room.room_type == 'dm' %}👤{% elif room.room_type == 'lobby' %}🎮{% else %}👥{% endif %}
+                            {{ room.name or 'Unnamed Room' }}
+                        </div>
+                        <div class="room-type">{{ room.room_type }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="new-room-form">
+                    <form method="POST" action="/chat/create" style="display:flex;gap:6px;">
+                        <input class="form-input" name="room_name" placeholder="New room..." style="flex:1;font-size:0.78rem;padding:6px 10px;"/>
+                        <button class="btn btn-primary btn-sm" type="submit">+</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Messages -->
+            <div class="msg-panel">
+                <div class="msg-panel-header">
+                    <span id="current-room-name">{{ active_room.name if active_room else 'Select a room' }}</span>
+                </div>
+                <div class="msg-list" id="msg-list">
+                    {% if not active_room %}
+                    <div class="empty-chat">Select a chat room to start messaging</div>
+                    {% endif %}
+                </div>
+                {% if active_room %}
+                <div class="msg-input-row">
+                    <input class="form-input" id="msg-input" placeholder="Type a message..." style="font-size:0.85rem;"/>
+                    <button class="btn btn-primary btn-sm" onclick="sendMsg()">Send</button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="/js/socket_client.js"></script>
+    <script>
+        let currentRoomId = {{ active_room.id if active_room else 'null' }};
+
+        function switchRoom(id, name) {
+            // Leave old
+            if (currentRoomId) socket.emit('chat_leave', { room_id: currentRoomId });
+            currentRoomId = id;
+            document.getElementById('current-room-name').textContent = name;
+            document.getElementById('msg-list').innerHTML = '';
+            document.querySelectorAll('.room-item').forEach(el => el.classList.remove('active'));
+            document.querySelector(`.room-item[data-id="${id}"]`)?.classList.add('active');
+
+            // Show input row
+            const msgPanel = document.querySelector('.msg-panel');
+            if (!msgPanel.querySelector('.msg-input-row')) {
+                const row = document.createElement('div');
+                row.className = 'msg-input-row';
+                row.innerHTML = '<input class="form-input" id="msg-input" placeholder="Type a message..." style="font-size:0.85rem;"/><button class="btn btn-primary btn-sm" onclick="sendMsg()">Send</button>';
+                msgPanel.appendChild(row);
+            }
+
+            joinChat(id);
+        }
+
+        function onChatHistory(data) {
+            const el = document.getElementById('msg-list');
+            el.innerHTML = '';
+            data.messages.forEach(m => appendMsg(m));
+            el.scrollTop = el.scrollHeight;
+        }
+
+        function onChatMessage(data) {
+            appendMsg(data);
+            const el = document.getElementById('msg-list');
+            el.scrollTop = el.scrollHeight;
+        }
+
+        function appendMsg(m) {
+            const el = document.getElementById('msg-list');
+            const div = document.createElement('div');
+            div.className = 'msg-bubble';
+            const time = m.created_at ? new Date(m.created_at).toLocaleTimeString() : '';
+            div.innerHTML = `<div class="msg-meta"><span class="msg-username">${m.username}</span> · ${time}</div><div class="msg-body">${escapeHtml(m.content)}</div>`;
+            el.appendChild(div);
+        }
+
+        function sendMsg() {
+            const input = document.getElementById('msg-input');
+            if (input && input.value.trim() && currentRoomId) {
+                sendChat(currentRoomId, input.value.trim());
+                input.value = '';
+            }
+        }
+
+        document.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && e.target.id === 'msg-input') sendMsg();
+        });
+
+        function escapeHtml(t) {
+            const d = document.createElement('div'); d.textContent = t; return d.innerHTML;
+        }
+
+        if (currentRoomId) joinChat(currentRoomId);
+    </script>
+</body>
+</html>

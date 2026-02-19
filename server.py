@@ -1,307 +1,408 @@
-print (" [+] Loading basics...")
 import os
-import json
-import urllib
-if os.name == 'nt':
-    os.system("color")
-    os.system("title Social Empires Server")
-else:
-    import sys
-    sys.stdout.write("\x1b]2;Social Empires Server\x07")
+from flask import Flask, render_template, send_from_directory, request, redirect, session, flash, jsonify, Response
+from flask_login import login_user, logout_user, login_required, current_user
+from flask_socketio import SocketIO
+from bundle import ASSETS_DIR, STUB_DIR
 
-print (" [+] Loading game config...")
-from get_game_config import get_game_config, patch_game_config
+# App setup
+TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), 'templates')
 
-print (" [+] Loading players...")
-from get_player_info import get_player_info, get_neighbor_info
-from sessions import load_saved_villages, all_saves_userid, all_saves_info, save_info, new_village, fb_friends_str
-load_saved_villages()
+app = Flask(__name__, template_folder=TEMPLATES_DIR)
+app.secret_key = os.environ.get('SECRET_KEY', 'minigames-secret-key-change-me')
 
-print (" [+] Loading server...")
-from flask import Flask, render_template, send_from_directory, request, redirect, session
-from flask.debughelpers import attach_enctype_error_multidict
-from command import command
-from engine import timestamp_now
-from version import version_name
-from constants import Constant
+# Database & Auth
+from db import init_db
+from auth import login_manager, register_user, authenticate_user
+
+init_db(app)
+login_manager.init_app(app)
+
+# SocketIO
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+
+from socket_events import register_events
+register_events(socketio)
+
+# Import models (after db init)
+from models import Game, GameSession, ChatRoom, ChatRoomMember
+
+# Social Empires backend modules
+from sessions import load_saved_villages, all_saves_info, save_info as se_save_info, new_village as se_new_village
+from sessions import session as se_session, fb_friends_str
+from get_player_info import get_player_info as se_get_player_info, get_neighbor_info as se_get_neighbor_info
+from command import command as se_command
+from get_game_config import get_game_config
 from quests import get_quest_map
-from bundle import ASSETS_DIR, STUB_DIR, TEMPLATES_DIR, BASE_DIR
+from version import version_name as SE_VERSION
+from engine import timestamp_now
+
+# Initialize SE villages on startup
+print(" [+] Loading Social Empires villages...")
+load_saved_villages()
 
 host = '127.0.0.1'
 port = 5050
 
-app = Flask(__name__, template_folder=TEMPLATES_DIR)
-
-print (" [+] Configuring server routes...")
 
 ##########
 # ROUTES #
 ##########
 
-## PAGES AND RESOURCES
+# --- Auth ---
 
-@app.route("/", methods=['GET', 'POST'])
+@app.route("/")
+def index():
+    if current_user.is_authenticated:
+        return redirect("/home")
+    return redirect("/login")
+
+
+@app.route("/login", methods=['GET', 'POST'])
 def login():
-    # Log out previous session
-    session.pop('USERID', default=None)
-    session.pop('GAMEVERSION', default=None)
-    # Reload saves. Allows saves modification without server reset
-    load_saved_villages()
-    # If logging in, set session USERID, and go to play
+    if current_user.is_authenticated:
+        return redirect("/home")
+
     if request.method == 'POST':
-        session['USERID'] = request.form['USERID']
-        session['GAMEVERSION'] = request.form['GAMEVERSION']
-        print("[LOGIN] USERID:", request.form['USERID'])
-        print("[LOGIN] GAMEVERSION:", request.form['GAMEVERSION'])
-        return redirect("/play.html")
-    # Login page
-    if request.method == 'GET':
-        saves_info = all_saves_info()
-        return render_template("login.html", saves_info=saves_info, version=version_name)
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        user, error = authenticate_user(username, password)
+        if error:
+            flash(error, 'error')
+            return redirect("/login")
+        login_user(user)
+        return redirect("/home")
 
-@app.route("/play.html")
-def play():
-    print(session)
-
-    if 'USERID' not in session:
-        return redirect("/")
-    if 'GAMEVERSION' not in session:
-        return redirect("/")
-
-    if session['USERID'] not in all_saves_userid():
-        return redirect("/")
-    
-    USERID = session['USERID']
-    GAMEVERSION = session['GAMEVERSION']
-    print("[PLAY] USERID:", USERID)
-    print("[PLAY] GAMEVERSION:", GAMEVERSION)
-    return render_template("play.html", save_info=save_info(USERID), serverTime=timestamp_now(), friendsInfo=fb_friends_str(USERID), version=version_name, GAMEVERSION=GAMEVERSION, SERVERIP=host)
-
-@app.route("/ruffle.html")
-def ruffle():
-    print(session)
-
-    if 'USERID' not in session:
-        return redirect("/")
-    if 'GAMEVERSION' not in session:
-        return redirect("/")
-
-    if session['USERID'] not in all_saves_userid():
-        return redirect("/")
-    
-    USERID = session['USERID']
-    GAMEVERSION = session['GAMEVERSION']
-    print("[RUFFLE] USERID:", USERID)
-    print("[RUFFLE] GAMEVERSION:", GAMEVERSION)
-    return render_template("ruffle.html", save_info=save_info(USERID), serverTime=timestamp_now(), version=version_name, GAMEVERSION=GAMEVERSION, SERVERIP=host)
+    return render_template("login.html", version="Mini Games")
 
 
-@app.route("/new.html")
-def new():
-    session['USERID'] = new_village()
-    session['GAMEVERSION'] = "SocialEmpires0926bsec.swf"
-    return redirect("play.html")
+@app.route("/register", methods=['POST'])
+def register():
+    username = request.form.get('username', '').strip()
+    password = request.form.get('password', '')
+    password2 = request.form.get('password2', '')
+
+    if password != password2:
+        flash("Passwords do not match.", 'error')
+        return redirect("/login?register")
+
+    user, error = register_user(username, password)
+    if error:
+        flash(error, 'error')
+        return redirect("/login?register")
+
+    flash("Account created! You can now sign in.", 'success')
+    return redirect("/login")
+
+
+@app.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    session.clear()
+    flash("Signed out.", 'info')
+    return redirect("/login")
+
+
+# --- Home (Game Select) ---
+
+@app.route("/home")
+@login_required
+def home():
+    games = Game.query.filter_by(is_active=True).all()
+    return render_template("home.html", games=games)
+
+
+# --- Social Empires Backend (real PHP emulation) ---
+
+@app.route("/get_player_info.php")
+def se_player_info_route():
+    USERID = request.args.get('user_id') or request.args.get('fb_sig_user', '')
+    if not USERID or not se_session(USERID):
+        return jsonify({"result": "error", "message": "No village found"}), 404
+    return jsonify(se_get_player_info(USERID))
+
+
+@app.route("/get_neighbor_info.php")
+def se_neighbor_info_route():
+    USERID = request.args.get('user_id', '')
+    map_number = int(request.args.get('map', '0'))
+    try:
+        return jsonify(se_get_neighbor_info(USERID, map_number))
+    except Exception:
+        return jsonify({"result": "error"}), 404
+
+
+@app.route("/command.php", methods=['POST'])
+def se_command_route():
+    USERID = request.form.get('user_id') or request.args.get('user_id', '')
+    if not USERID or not se_session(USERID):
+        return jsonify({"result": "error"}), 404
+    data = request.get_data(as_text=True)
+    result = se_command(USERID, data)
+    return jsonify(result) if result else jsonify({"result": "ok"})
+
+
+@app.route("/get_game_config.php")
+def se_game_config_route():
+    return jsonify(get_game_config())
+
+
+@app.route("/get_quest_map.php")
+def se_quest_map_route():
+    questid = request.args.get('questid', '')
+    data, code = get_quest_map(questid)
+    if code != 200:
+        return Response("", status=404)
+    return jsonify(data)
+
 
 @app.route("/crossdomain.xml")
 def crossdomain():
-    return send_from_directory(STUB_DIR, "crossdomain.xml")
+    return send_from_directory(STUB_DIR, 'crossdomain.xml')
 
-@app.route("/img/<path:path>")
-def images(path):
-    return send_from_directory(TEMPLATES_DIR + "/img", path)
+
+# SE Flash asset routes (mimic the original CDN structure)
+@app.route("/default01.static.socialpointgames.com/static/socialempires/<path:path>")
+def se_static_assets(path):
+    return send_from_directory(ASSETS_DIR, path)
+
+
+@app.route("/dynamic.flash1.dev.socialpoint.es/<path:path>")
+def se_dynamic_stub(path):
+    """Dynamic URL stub — redirect API calls to local endpoints."""
+    return jsonify({"result": "ok"})
+
+
+# SE pages
+@app.route("/select", methods=['GET'])
+@login_required
+def se_select_village():
+    saves = all_saves_info()
+    return render_template("select_village.html",
+        saves_info=saves,
+        version=SE_VERSION,
+        current_user=current_user)
+
+
+@app.route("/select_village", methods=['POST'])
+@login_required
+def se_select_village_post():
+    USERID = request.form.get('USERID', '')
+    GAMEVERSION = request.form.get('GAMEVERSION', 'SocialEmpires0926bsec.swf')
+    if not USERID or not se_session(USERID):
+        flash("Invalid village.", 'error')
+        return redirect("/select")
+    return redirect(f"/play/{USERID}?version={GAMEVERSION}")
+
+
+@app.route("/new.html")
+@login_required
+def se_new_village_page():
+    se_new_village()
+    flash("New empire created!", 'success')
+    return redirect("/select")
+
+
+@app.route("/play/<USERID>")
+@login_required
+def se_play(USERID):
+    if not se_session(USERID):
+        flash("Village not found.", 'error')
+        return redirect("/select")
+    info = se_save_info(USERID)
+    friends = fb_friends_str(USERID)
+    server_time = timestamp_now()
+    GAMEVERSION = request.args.get('version', 'SocialEmpires0926bsec.swf')
+    return render_template("play.html",
+        save_info=info,
+        friendsInfo=friends,
+        serverTime=server_time,
+        GAMEVERSION=GAMEVERSION,
+        version=SE_VERSION)
+
+
+# --- Game Routes ---
+
+@app.route("/game/<slug>")
+@login_required
+def game_lobby(slug):
+    game = Game.query.filter_by(slug=slug).first_or_404()
+
+    # Social Empires: redirect to village selection
+    if slug == 'social-empires':
+        return redirect("/select")
+
+    waiting = GameSession.query.filter_by(game_id=game.id, status='waiting').all()
+    return render_template("game_room.html", game=game, room_code=None, waiting_games=waiting, chat_room_id=None)
+
+
+@app.route("/game/<slug>/<room_code>")
+@login_required
+def game_room(slug, room_code):
+    game = Game.query.filter_by(slug=slug).first_or_404()
+    gs = GameSession.query.filter_by(room_code=room_code).first_or_404()
+
+    # Create or get chat room for this game session
+    from db import db
+    chat_room = ChatRoom.query.filter_by(game_session_id=gs.id).first()
+    if not chat_room:
+        chat_room = ChatRoom(
+            name=f"{game.name} — {room_code}",
+            room_type='lobby',
+            game_session_id=gs.id,
+            created_by=current_user.id
+        )
+        db.session.add(chat_room)
+        db.session.commit()
+
+    return render_template("game_room.html", game=game, room_code=room_code, chat_room_id=chat_room.id)
+
+
+# --- Leaderboard ---
+
+@app.route("/leaderboard")
+@login_required
+def leaderboard_global():
+    from leaderboard import get_global_leaderboard
+    all_games = Game.query.filter_by(is_active=True).all()
+    entries = get_global_leaderboard()
+    return render_template("leaderboard.html", game=None, all_games=all_games, entries=entries)
+
+
+@app.route("/leaderboard/<slug>")
+@login_required
+def leaderboard_game(slug):
+    from leaderboard import get_leaderboard
+    game = Game.query.filter_by(slug=slug).first_or_404()
+    all_games = Game.query.filter_by(is_active=True).all()
+    entries = get_leaderboard(slug)
+    return render_template("leaderboard.html", game=game, all_games=all_games, entries=entries)
+
+
+# --- Chat ---
+
+@app.route("/chat")
+@login_required
+def chat_page():
+    # Get rooms user is a member of, plus public rooms
+    user_memberships = ChatRoomMember.query.filter_by(user_id=current_user.id).all()
+    room_ids = [m.room_id for m in user_memberships]
+    rooms = ChatRoom.query.filter(
+        (ChatRoom.id.in_(room_ids)) | (ChatRoom.room_type == 'group')
+    ).all()
+
+    # Create a "General" room if none exist
+    from db import db
+    if not ChatRoom.query.filter_by(name='General').first():
+        general = ChatRoom(name='General', room_type='group', created_by=current_user.id)
+        db.session.add(general)
+        db.session.commit()
+        rooms = [general] + rooms
+
+    active_room = rooms[0] if rooms else None
+    return render_template("chat.html", rooms=rooms, active_room=active_room)
+
+
+@app.route("/chat/create", methods=['POST'])
+@login_required
+def chat_create():
+    from db import db
+    name = request.form.get('room_name', '').strip()
+    if not name:
+        flash("Room name required.", 'error')
+        return redirect("/chat")
+
+    room = ChatRoom(name=name, room_type='group', created_by=current_user.id)
+    db.session.add(room)
+    db.session.flush()
+    db.session.add(ChatRoomMember(room_id=room.id, user_id=current_user.id))
+    db.session.commit()
+    return redirect("/chat")
+
+
+# --- Static files ---
+
+@app.route("/js/<path:path>")
+def js_files(path):
+    return send_from_directory(os.path.join(TEMPLATES_DIR, "js"), path)
+
 
 @app.route("/css/<path:path>")
-def css(path):
-    return send_from_directory(TEMPLATES_DIR + "/css", path)
-
-## GAME STATIC
+def css_files(path):
+    return send_from_directory(os.path.join(TEMPLATES_DIR, "css"), path)
 
 
-@app.route("/default01.static.socialpointgames.com/static/socialempires/swf/05122012_projectiles.swf")
-def similar_05122012_projectiles():
-    return send_from_directory(ASSETS_DIR + "/swf", "20130417_projectiles.swf")
+@app.route("/img/<path:path>")
+def img_files(path):
+    return send_from_directory(os.path.join(TEMPLATES_DIR, "img"), path)
 
-@app.route("/default01.static.socialpointgames.com/static/socialempires/swf/05122012_magicParticles.swf")
-def similar_05122012_magicParticles():
-    return send_from_directory(ASSETS_DIR + "/swf", "20131010_magicParticles.swf")
 
-@app.route("/default01.static.socialpointgames.com/static/socialempires/swf/05122012_dynamic.swf")
-def similar_05122012_dynamic():
-    return send_from_directory(ASSETS_DIR + "/swf", "120608_dynamic.swf")
+@app.route("/assets/<path:path>")
+def asset_files(path):
+    return send_from_directory(ASSETS_DIR, path)
 
-@app.route("/default01.static.socialpointgames.com/static/socialempires/<path:path>")
-def static_assets_loader(path):
-    # return send_from_directory(ASSETS_DIR, path)
-    if not os.path.exists(ASSETS_DIR + "/"+ path):
-        # File does not exists in provided assets
-        if not os.path.exists(f"{BASE_DIR}/download_assets/assets/{path}"):
-            # Download file from SP's CDN if it doesn't exist
 
-            # Make directory
-            directory = os.path.dirname(f"{BASE_DIR}/download_assets/assets/{path}")
-            if not os.path.exists(directory):
-                os.makedirs(directory)
+# --- API (for future use) ---
 
-            # Download File
-            URL = f"https://static.socialpointgames.com/static/socialempires/assets/{path}"
-            try:
-                response = urllib.request.urlretrieve(URL, f"{BASE_DIR}/download_assets/assets/{path}")
-            except urllib.error.HTTPError:
-                return ("", 404)
+@app.route("/api/games")
+@login_required
+def api_games():
+    games = Game.query.filter_by(is_active=True).all()
+    return jsonify([{
+        'slug': g.slug, 'name': g.name, 'description': g.description,
+        'icon': g.icon, 'min_players': g.min_players, 'max_players': g.max_players,
+    } for g in games])
 
-            print(f"====== DOWNLOADED ASSET: {URL}")
-            return send_from_directory("{BASE_DIR}/download_assets/assets", path)
+
+@app.route("/api/users/search")
+@login_required
+def api_user_search():
+    from auth import User
+    q = request.args.get('q', '').strip()
+    if len(q) < 2:
+        return jsonify([])
+    users = User.query.filter(
+        User.username.ilike(f'%{q}%'),
+        User.id != current_user.id
+    ).limit(10).all()
+    return jsonify([{'id': u.id, 'username': u.username} for u in users])
+
+
+@app.route("/api/lobbies/<slug>")
+@login_required
+def api_lobbies(slug):
+    from datetime import datetime
+    game = Game.query.filter_by(slug=slug).first()
+    if not game:
+        return jsonify([])
+    waiting = GameSession.query.filter_by(
+        game_id=game.id, status='waiting'
+    ).order_by(GameSession.started_at.desc()).all()
+    now = datetime.utcnow()
+    result = []
+    for gs in waiting:
+        delta = (now - gs.started_at).total_seconds()
+        if delta < 60:
+            age = f'{int(delta)}s ago'
+        elif delta < 3600:
+            age = f'{int(delta/60)}m ago'
         else:
-            # Use downloaded CDN asset
-            print(f"====== USING EXTERNAL: download_assets/assets/{path}")
-            return send_from_directory("{BASE_DIR}/download_assets/assets", path)
-    else:
-        # Use provided asset
-        return send_from_directory(ASSETS_DIR, path)
-
-## GAME DYNAMIC
-
-@app.route("/dynamic.flash1.dev.socialpoint.es/appsfb/socialempiresdev/srvempires/track_game_status.php", methods=['POST'])
-def track_game_status_response():
-    status = request.values['status']
-    installId = request.values['installId']
-    user_id = request.values['user_id']
-
-    print(f"track_game_status: status={status}, installId={installId}, user_id={user_id}. --", request.values)
-    return ("", 200)
-
-@app.route("/dynamic.flash1.dev.socialpoint.es/appsfb/socialempiresdev/srvempires/get_game_config.php", methods=['GET','POST'])
-def get_game_config_response():
-    spdebug = None
-
-    USERID = request.values['USERID']
-    user_key = request.values['user_key']
-    if 'spdebug' in request.values:
-        spdebug = request.values['spdebug']
-    language = request.values['language']
-
-    print(f"get_game_config: USERID: {USERID}. --", request.values)
-    return get_game_config()
-
-@app.route("/dynamic.flash1.dev.socialpoint.es/appsfb/socialempiresdev/srvempires/get_player_info.php", methods=['POST'])
-def get_player_info_response():
-
-    USERID = request.values['USERID']
-    user_key = request.values['user_key']
-    spdebug = request.values['spdebug'] if 'spdebug' in request.values else None
-    language = request.values['language']
-    neighbors = request.values['neighbors'] if 'neighbors' in request.values else None
-    client_id = request.values['client_id']
-    user = request.values['user'] if 'user' in request.values else None
-    map = int(request.values['map']) if 'map' in request.values else None
-
-    print(f"get_player_info: USERID: {USERID}. user: {user} --", request.values)
-
-    # Current Player
-    if user is None:
-        return (get_player_info(USERID), 200)
-    # Arthur
-    elif user == Constant.NEIGHBOUR_ARTHUR_GUINEVERE_1 \
-    or user == Constant.NEIGHBOUR_ARTHUR_GUINEVERE_2 \
-    or user == Constant.NEIGHBOUR_ARTHUR_GUINEVERE_3:
-        return (get_neighbor_info(user, map), 200)
-    # Quest
-    elif user.startswith("100000"): # Dirty but quick
-        return get_quest_map(user)
-    # Neighbor
-    else:
-        return (get_neighbor_info(user, map), 200)
-
-@app.route("/dynamic.flash1.dev.socialpoint.es/appsfb/socialempiresdev/srvempires/sync_error_track.php", methods=['POST'])
-def sync_error_track_response():
-    spdebug = None
-
-    USERID = request.values['USERID']
-    user_key = request.values['user_key']
-    if 'spdebug' in request.values:
-        spdebug = request.values['spdebug']
-    language = request.values['language']
-    error = request.values['error']
-    current_failed = request.values['current_failed']
-    tries = request.values['tries'] if 'tries' in request.values else None
-    survival = request.values['survival']
-    previous_failed = request.values['previous_failed']
-    description = request.values['description']
-    user_id = request.values['user_id']
-
-    print(f"sync_error_track: USERID: {USERID}. [Error: {error}] tries: {tries}. --", request.values)
-    return ("", 200)
-
-@app.route("/null")
-def flash_sync_error_response():
-    sp_ref_cat = request.values['sp_ref_cat']
-
-    if sp_ref_cat == "flash_sync_error":
-        reason = "reload On Sync Error"
-    elif sp_ref_cat == "flash_reload_quest":
-        reason = "reload On End Quest"
-    elif sp_ref_cat == "flash_reload_attack":
-        reason = "reload On End Attack"
-
-    print("flash_sync_error", reason, ". --", request.values)
-    return redirect("/play.html")
-
-@app.route("/dynamic.flash1.dev.socialpoint.es/appsfb/socialempiresdev/srvempires/command.php", methods=['POST'])
-def command_response():
-    spdebug = None
-
-    USERID = request.values['USERID']
-    user_key = request.values['user_key']
-    if 'spdebug' in request.values:
-        spdebug = request.values['spdebug']
-    language = request.values['language']
-    client_id = request.values['client_id']
-
-    print(f"command: USERID: {USERID}. --", request.values)
-
-    data_str = request.values['data']
-    data_hash = data_str[:64]
-    assert data_str[64] == ';'
-    data_payload = data_str[65:]
-    data = json.loads(data_payload)
-
-    command(USERID, data)
-    
-    return ({"result": "success"}, 200)
-
-@app.route("/dynamic.flash1.dev.socialpoint.es/appsfb/socialempiresdev/srvempires/get_continent_ranking.php")
-def get_continent_ranking_response():
-
-    USERID = request.values['USERID']
-    worldChange = request.values['worldChange']
-    if 'spdebug' in request.values:
-        spdebug = request.values['spdebug']
-    town_id = request.values['map']
-    user_key = request.values['user_key']
-
-    # TODO - stub
-    response = {
-        "world_id": 0,
-        "continent": [
-            {"posicion": 0, "nivel": 1, "user_id": 1111}, # villages/AcidCaos
-            {"posicion": 1, "nivel": 0},
-            {"posicion": 2, "nivel": 0},
-            {"posicion": 3, "nivel": 0},
-            {"posicion": 4, "nivel": 0},
-            {"posicion": 5, "nivel": 0},
-            {"posicion": 6, "nivel": 0},
-            {"posicion": 7, "nivel": 0}
-        ]
-    }
-    return(response)
+            age = f'{int(delta/3600)}h ago'
+        result.append({
+            'room_code': gs.room_code,
+            'host': gs.player1.username if gs.player1 else '?',
+            'is_private': gs.is_private,
+            'age': age,
+        })
+    return jsonify(result)
 
 
 ########
 # MAIN #
 ########
 
-print (" [+] Running server...")
-
 if __name__ == '__main__':
-    app.secret_key = 'SECRET_KEY'
-    app.run(host=host, port=port, debug=False)
+    from cleanup import start_cleanup_task
+    start_cleanup_task(socketio)
+    print(f" [+] Mini Games Platform running on http://{host}:{port}")
+    socketio.run(app, host=host, port=port, debug=False)

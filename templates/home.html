@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}Mini Games — Home{% endblock %}
+
+{% block head %}
+<meta name="description" content="Play chess, backgammon, checkers, and more — free online multiplayer games."/>
+<style>
+    .games-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 16px;
+        margin-top: 20px;
+    }
+    .game-card {
+        background: var(--bg-glass);
+        border: 1px solid var(--border-glass);
+        border-radius: var(--radius-lg);
+        padding: 24px 20px;
+        text-align: center;
+        transition: var(--transition-smooth);
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+    }
+    .game-card:hover {
+        transform: translateY(-6px);
+        border-color: var(--accent-primary);
+        box-shadow: 0 12px 40px rgba(108, 99, 255, 0.2);
+    }
+    .game-card .game-icon {
+        font-size: 2.5rem;
+        margin-bottom: 12px;
+        display: block;
+    }
+    .game-card .game-name {
+        font-weight: 700;
+        font-size: 1.1rem;
+        margin-bottom: 6px;
+    }
+    .game-card .game-desc {
+        font-size: 0.78rem;
+        color: var(--text-secondary);
+        line-height: 1.4;
+        margin-bottom: 16px;
+    }
+    .game-card .game-actions {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+    }
+    .home-header {
+        width: 100%;
+        max-width: 960px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+    .home-header h1 {
+        font-size: 1.5rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    .home-nav {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+    .stat-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        background: var(--bg-glass);
+        border: 1px solid var(--border-glass);
+        border-radius: 20px;
+        font-size: 0.78rem;
+        color: var(--text-secondary);
+    }
+    .stat-pill .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent-green);
+        animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.4; }
+    }
+    .section-title {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-top: 32px;
+        margin-bottom: 4px;
+        max-width: 960px;
+        width: 100%;
+    }
+    .quick-links {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        max-width: 960px;
+        width: 100%;
+        margin-top: 12px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-container" style="padding-top: 24px;">
+    <div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 999;"></div>
+
+    <!-- Header -->
+    <div class="home-header">
+        <h1>🎮 Mini Games</h1>
+        <div class="home-nav">
+            <div class="stat-pill"><div class="dot"></div> <span id="online-count">0</span> online</div>
+            <a href="/leaderboard" class="btn btn-secondary btn-sm">🏆 Leaderboards</a>
+            <a href="/logout" class="btn btn-secondary btn-sm">Sign Out</a>
+        </div>
+    </div>
+
+    <p style="max-width: 960px; width: 100%; color: var(--text-secondary); font-size: 0.85rem;">
+        Welcome back, <strong style="color: var(--accent-gold);">{{ current_user.username }}</strong>! Pick a game and challenge players.
+    </p>
+
+    <!-- Games Grid -->
+    <div class="section-title">Available Games</div>
+    <div class="games-grid" style="max-width: 960px; width: 100%;">
+        {% for game in games %}
+        <div class="game-card" id="card-{{ game.slug }}">
+            <span class="game-icon">{{ game.icon }}</span>
+            <div class="game-name">{{ game.name }}</div>
+            <div class="game-desc">{{ game.description }}</div>
+            <div class="game-actions">
+                {% if game.slug == 'social-empires' %}
+                <a href="/select" class="btn btn-primary btn-sm">▶ Play</a>
+                {% else %}
+                <button class="btn btn-primary btn-sm" onclick="findMatch('{{ game.slug }}')">⚡ Quick Match</button>
+                <a href="/game/{{ game.slug }}" class="btn btn-secondary btn-sm">🔍 Lobby</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Quick Links -->
+    <div class="quick-links">
+        <a href="/leaderboard" class="btn btn-secondary btn-sm">🏆 Global Leaderboard</a>
+        {% for game in games %}
+        <a href="/leaderboard/{{ game.slug }}" class="btn btn-secondary btn-sm">{{ game.icon }} {{ game.name }} Ranks</a>
+        {% endfor %}
+    </div>
+
+    <div class="page-footer mt-24">
+        <p>Mini Games Platform · Built with ❤️</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/js/socket_client.js"></script>
+{% endblock %}

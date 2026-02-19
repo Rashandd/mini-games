@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+        <title>Mini Games — Select Village</title>
+        <link rel="stylesheet" href="/css/modern.css"/>
+    </head>
+    <body>
+        <div class="page-container">
+            <!-- Logo -->
+            <div class="logo-container">
+                <div style="font-size: 3rem; margin-bottom: 8px;">🏰</div>
+                <div class="logo-title">Mini Games</div>
+                <div class="logo-subtitle">Welcome back, <strong>{{ current_user.username }}</strong></div>
+            </div>
+
+            <!-- Main Card -->
+            <div class="glass-card">
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                    <div class="flash-msg {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% endwith %}
+
+                <form method="post" action="/select_village">
+                    {% if saves_info %}
+                    <!-- Village Selection -->
+                    <div class="form-group">
+                        <label class="form-label">Select a Village</label>
+                        {% for save in saves_info %}
+                        <label class="village-item" for="village-{{ save.userid }}">
+                            <div class="village-icon">🏰</div>
+                            <div class="village-info">
+                                <div class="village-name">{{ save.name }}</div>
+                                <div class="village-level">Level {{ save.level }} · {{ save.xp }} XP</div>
+                            </div>
+                            <input type="radio" name="USERID" value="{{ save.userid }}" id="village-{{ save.userid }}" {% if loop.first %}checked{% endif %} style="accent-color: var(--accent-primary);"/>
+                        </label>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Game Version -->
+                    <div class="form-group">
+                        <label class="form-label" for="select-version">Game Version</label>
+                        <select class="form-select" id="select-version" name="GAMEVERSION" required>
+                            <option value="SocialEmpires0926bsec.swf">0.9.26b (Working)</option>
+                            <option value="SocialEmpires1.1.5sec.swf">1.1.5 (Experimental)</option>
+                            <option value="SocialEmpires1.4.07sec.swf">1.4.07 (Broken)</option>
+                        </select>
+                        <p class="mt-12" style="font-size: 0.75rem; color: var(--text-muted);">💡 Tip: 0.9.26b contains legacy Troll Missions!</p>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">
+                        ⚔ Enter Empire
+                    </button>
+                    {% endif %}
+
+                    <div class="divider">or</div>
+
+                    <a href="/new.html" class="btn btn-gold">
+                        🏗 Create New Empire
+                    </a>
+                </form>
+
+                <div class="text-center mt-16">
+                    <a href="/logout" class="link" style="font-size: 0.85rem;">Sign Out</a>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="page-footer mt-24">
+                <p>Mini Games Platform · Featured: Social Empires</p>
+            </div>
+        </div>
+    </body>
+</html>

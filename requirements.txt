@@ -1,2 +1,8 @@
 flask
 jsonpatch
+flask-login
+flask-sqlalchemy
+flask-socketio
+eventlet
+psycopg2-binary
+python-chess
