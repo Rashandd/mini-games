@@ -1,6 +1,7 @@
 social-emperors_*.exe
 build/
 .venv/
+venv/
 saves/
 .idea
 __pycache__/
@@ -12,3 +13,4 @@ Include/
 Lib/
 Scripts/
 pyvenv.cfg
+node_modules/
