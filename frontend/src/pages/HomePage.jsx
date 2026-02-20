@@ -24,6 +24,8 @@ export default function HomePage() {
   const handlePlay = (slug) => {
     if (slug === 'social-empires') {
       navigate('/social-empires')
+    } else if (slug === 'wave-drifter') {
+      navigate('/wave-drifter')
     } else {
       navigate(`/game/${slug}`)
     }

@@ -9,6 +9,7 @@ import GameRoomPage from './pages/GameRoomPage'
 import LeaderboardPage from './pages/LeaderboardPage'
 import VillageSelectPage from './pages/VillageSelectPage'
 import SEPlayPage from './pages/SEPlayPage'
+import WaveDrifterPage from './pages/WaveDrifterPage'
 
 function ProtectedRoute({ children }) {
   const user = useAuthStore((s) => s.user)
@@ -39,6 +40,7 @@ export default function App() {
                   <Route path="/leaderboard/:slug" element={<LeaderboardPage />} />
                   <Route path="/social-empires" element={<VillageSelectPage />} />
                   <Route path="/social-empires/play/:userid" element={<SEPlayPage />} />
+                  <Route path="/wave-drifter" element={<WaveDrifterPage />} />
                 </Routes>
               </main>
               <ChatSidebar />

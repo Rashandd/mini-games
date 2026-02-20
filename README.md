@@ -16,6 +16,7 @@ A multiplayer gaming platform featuring classic board games with real-time match
 | 🎲 **Backgammon** | 1v1 | Dice-based backgammon with bar and bearing off |
 | ❌ **Tic-Tac-Toe** | 1v1 | Simple 3×3 grid game |
 | ⚔️ **Social Empires** | Solo | Flash game preserved with [Ruffle](https://ruffle.rs/) emulator |
+| 🏴‍☠️ **Wave Drifter** | Solo | Isometric pirate ship game — dodge and destroy the royal navy! |
 
 ## ✨ Features
 
@@ -104,6 +105,10 @@ mini-games/
 ├── villages/                   # SE quest maps
 ├── saves/                      # SE village save files
 ├── mods/                       # SE mod support
+├── wave-drifter/               # Wave Drifter Godot source (git clone)
+│   ├── project.godot           # Godot project file
+│   ├── scenes/                 # Game scenes
+│   └── scripts/                # GDScript source
 └── stub/                       # crossdomain.xml
 ```
 

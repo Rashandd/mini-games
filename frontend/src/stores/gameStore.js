@@ -55,6 +55,12 @@ const useGameStore = create((set, get) => ({
     s.emit('find_match', { game_slug: gameSlug })
   },
 
+  deleteGame: (roomCode) => {
+    const s = getSocket()
+    if (!s) return
+    s.emit('delete_game', { room_code: roomCode })
+  },
+
   setupListeners: () => {
     const s = getSocket()
     if (!s) return
@@ -65,6 +71,7 @@ const useGameStore = create((set, get) => ({
         gameSlug: data.game_slug,
         gameName: data.game_name,
         player1: data.player1,
+        yourPlayer: 1,
         status: 'waiting',
         state: null,
         gameOver: false,
@@ -72,6 +79,7 @@ const useGameStore = create((set, get) => ({
     })
 
     s.on('game_joined', (data) => {
+      // Player 2 receives this — set everything
       set({
         roomCode: data.room_code,
         gameSlug: data.game_slug,
@@ -85,6 +93,21 @@ const useGameStore = create((set, get) => ({
       })
     })
 
+    // Player 1 receives this when Player 2 joins
+    // Only update what changed — preserve yourPlayer=1
+    s.on('game_started', (data) => {
+      set({
+        status: data.status,
+        state: data.state,
+        player2: data.player2,
+        gameOver: false,
+      })
+    })
+
+    s.on('move_error', (data) => {
+      console.warn('Move error:', data?.message)
+    })
+
     s.on('game_update', (data) => {
       const update = { state: data.state }
       if (data.game_over) {
@@ -96,6 +119,14 @@ const useGameStore = create((set, get) => ({
       }
       set(update)
     })
+
+    s.on('room_deleted', () => {
+      get().reset()
+    })
+
+    s.on('error', (data) => {
+      console.warn('Game error:', data?.message)
+    })
   },
 
   cleanupListeners: () => {
@@ -103,7 +134,11 @@ const useGameStore = create((set, get) => ({
     if (!s) return
     s.off('game_created')
     s.off('game_joined')
+    s.off('game_started')
     s.off('game_update')
+    s.off('move_error')
+    s.off('room_deleted')
+    s.off('error')
   },
 }))
 

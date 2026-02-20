@@ -1,18 +1,18 @@
 """Game engine registry and base class."""
 from .base_game import BaseGame
 from .tic_tac_toe_game import TicTacToeGame
-from .chess_game import ChessGame
 from .backgammon_game import BackgammonGame
 from .checkers_game import CheckersGame
 from .social_empires import SocialEmpiresGame
+from .wave_drifter_game import WaveDrifterGame
 
 # Game registry: slug -> engine class
 GAME_ENGINES = {
     'tic-tac-toe': TicTacToeGame,
-    'chess': ChessGame,
     'backgammon': BackgammonGame,
     'checkers': CheckersGame,
     'social-empires': SocialEmpiresGame,
+    'wave-drifter': WaveDrifterGame,
 }
 
 def get_engine(slug):

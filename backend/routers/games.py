@@ -20,6 +20,21 @@ async def list_games(db: AsyncSession = Depends(get_db)):
     return result.scalars().all()
 
 
+@router.get("/game-stats/{slug}")
+async def game_stats(slug: str, db: AsyncSession = Depends(get_db)):
+    """Return active/waiting counts for a specific game."""
+    game = (await db.execute(select(Game).where(Game.slug == slug))).scalar_one_or_none()
+    if not game:
+        return {"waiting": 0, "playing": 0}
+    waiting = (await db.execute(
+        select(GameSession).where(GameSession.game_id == game.id, GameSession.status == "waiting")
+    )).scalars().all()
+    playing = (await db.execute(
+        select(GameSession).where(GameSession.game_id == game.id, GameSession.status == "playing")
+    )).scalars().all()
+    return {"waiting": len(waiting), "playing": len(playing)}
+
+
 @router.get("/lobbies/{slug}", response_model=list[LobbyOut])
 async def list_lobbies(
     slug: str,

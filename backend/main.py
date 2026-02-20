@@ -8,7 +8,33 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from config import settings
-from database import init_db
+from database import init_db, async_session
+
+
+# ─── Default games to seed ──────────────────────────────────────────────────
+
+DEFAULT_GAMES = [
+    {"slug": "tic-tac-toe", "name": "Tic-Tac-Toe", "icon": "❌", "description": "Simple 3×3 grid game", "min_players": 2, "max_players": 2},
+    {"slug": "checkers", "name": "Checkers", "icon": "🏁", "description": "Classic checkers with king promotion", "min_players": 2, "max_players": 2},
+    {"slug": "backgammon", "name": "Backgammon", "icon": "🎲", "description": "Dice-based backgammon with bar and bearing off", "min_players": 2, "max_players": 2},
+    {"slug": "social-empires", "name": "Social Empires", "icon": "⚔️", "description": "Flash strategy game preserved via Ruffle", "min_players": 1, "max_players": 1},
+    {"slug": "wave-drifter", "name": "Wave Drifter", "icon": "🏴\u200d☠️", "description": "Isometric pirate ship game — dodge and destroy the royal navy!", "min_players": 1, "max_players": 1},
+]
+
+
+async def seed_games():
+    """Ensure all default games exist in the database."""
+    from sqlalchemy import select
+    from models import Game
+
+    async with async_session() as session:
+        for g in DEFAULT_GAMES:
+            existing = (await session.execute(
+                select(Game).where(Game.slug == g["slug"])
+            )).scalar_one_or_none()
+            if not existing:
+                session.add(Game(**g))
+        await session.commit()
 
 
 @asynccontextmanager
@@ -29,6 +55,10 @@ async def lifespan(app: FastAPI):
 
     await load_saved_villages()
     print(" [+] Villages loaded.")
+
+    # Seed default games
+    await seed_games()
+    print(" [+] Games seeded.")
 
     # Start cleanup background task
     from services.cleanup import cleanup_loop
@@ -62,6 +92,11 @@ app.mount("/assets", StaticFiles(directory=settings.ASSETS_DIR), name="assets")
 import os
 if os.path.exists(settings.STUB_DIR):
     app.mount("/stub", StaticFiles(directory=settings.STUB_DIR), name="stub")
+
+# Wave Drifter HTML5 export
+wd_assets = os.path.join(os.path.dirname(__file__), "..", "assets", "wave-drifter")
+if os.path.exists(wd_assets):
+    app.mount("/wave-drifter-assets", StaticFiles(directory=wd_assets, html=True), name="wave-drifter-assets")
 
 # ─── Routers ────────────────────────────────────────────────────────────────
 

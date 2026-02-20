@@ -96,6 +96,33 @@ async def create_game(sid, data):
 
 
 @sio.event
+async def delete_game(sid, data):
+    """Let the host delete their waiting room."""
+    user = _get_user_from_sid(sid)
+    if not user:
+        return await sio.emit("error", {"message": "Not authenticated"}, to=sid)
+
+    async with async_session() as db:
+        room_code = data.get("room_code")
+        result = await db.execute(
+            select(GameSession).where(GameSession.room_code == room_code)
+        )
+        gs = result.scalar_one_or_none()
+        if not gs:
+            return await sio.emit("error", {"message": "Room not found"}, to=sid)
+        if gs.player1_id != user["user_id"]:
+            return await sio.emit("error", {"message": "Only the host can delete"}, to=sid)
+        if gs.status != "waiting":
+            return await sio.emit("error", {"message": "Can only delete waiting rooms"}, to=sid)
+
+        await db.delete(gs)
+        await db.commit()
+
+    await sio.emit("room_deleted", {"room_code": room_code}, to=sid)
+    sio.leave_room(sid, room_code)
+
+
+@sio.event
 async def join_game(sid, data):
     user = _get_user_from_sid(sid)
     if not user:
@@ -119,28 +146,48 @@ async def join_game(sid, data):
             if not check_password_hash(gs.password_hash, password):
                 return await sio.emit("error", {"message": "Wrong password"}, to=sid)
 
-        if gs.status == "waiting" and gs.player2_id is None and gs.player1_id != user["user_id"]:
-            gs.player2_id = user["user_id"]
-            gs.status = "playing"
-            gs.last_activity = datetime.utcnow()
-            await db.commit()
-            await db.refresh(gs, ["player1", "player2"])
+        # Validate join conditions
+        if gs.player1_id == user["user_id"]:
+            return await sio.emit("error", {"message": "You cannot join your own game"}, to=sid)
+        if gs.status != "waiting":
+            return await sio.emit("error", {"message": "Game is already in progress"}, to=sid)
+        if gs.player2_id is not None:
+            return await sio.emit("error", {"message": "Game is full"}, to=sid)
+
+        # Assign player 2 and start the game
+        gs.player2_id = user["user_id"]
+        gs.status = "playing"
+        gs.last_activity = datetime.utcnow()
+        await db.commit()
+        await db.refresh(gs, ["player1", "player2"])
 
         game = (await db.execute(select(Game).where(Game.id == gs.game_id))).scalar_one()
         p1 = gs.player1.username if gs.player1 else "?"
-        p2 = gs.player2.username if gs.player2 else None
+        p2 = gs.player2.username if gs.player2 else "?"
 
+        # Join the socket room
         sio.enter_room(sid, room_code)
+
+        # Emit to player 2 (the joiner) — full state so they can render
         await sio.emit("game_joined", {
             "room_code": room_code,
             "game_slug": game.slug,
             "game_name": game.name,
-            "status": gs.status,
+            "status": "playing",
             "state": gs.state_json,
             "player1": p1,
             "player2": p2,
-            "your_player": 1 if gs.player1_id == user["user_id"] else 2,
-        }, room=room_code)
+            "your_player": 2,
+        }, to=sid)
+
+        # Emit to player 1 (the host) — only the fields that changed
+        # This prevents overwriting yourPlayer which was set in game_created
+        await sio.emit("game_started", {
+            "room_code": room_code,
+            "status": "playing",
+            "state": gs.state_json,
+            "player2": p2,
+        }, room=room_code, skip_sid=sid)
 
 
 @sio.event
@@ -497,15 +544,57 @@ async def find_match(sid, data):
             return await sio.emit("error", {"message": "Unknown game"}, to=sid)
 
         waiting = (await db.execute(
-            select(GameSession).where(
+            select(GameSession)
+            .options(selectinload(GameSession.player1))
+            .where(
                 GameSession.game_id == game.id,
                 GameSession.status == "waiting",
-                GameSession.is_private == False,
+                GameSession.is_private == False,  # noqa: E712
                 GameSession.player1_id != user["user_id"],
             )
         )).scalar_one_or_none()
 
     if waiting:
-        await join_game(sid, {"room_code": waiting.room_code})
+        # Inline join logic so socket room is handled properly
+        async with async_session() as db:
+            result = await db.execute(
+                select(GameSession)
+                .options(selectinload(GameSession.player1), selectinload(GameSession.player2))
+                .where(GameSession.room_code == waiting.room_code)
+            )
+            gs = result.scalar_one_or_none()
+            if not gs or gs.status != "waiting" or gs.player2_id is not None:
+                # Race condition — game was taken, create a new one
+                await create_game(sid, {"game_slug": game_slug})
+                return
+
+            gs.player2_id = user["user_id"]
+            gs.status = "playing"
+            gs.last_activity = datetime.utcnow()
+            await db.commit()
+            await db.refresh(gs, ["player1", "player2"])
+
+            p1 = gs.player1.username if gs.player1 else "?"
+            p2 = gs.player2.username if gs.player2 else "?"
+
+            sio.enter_room(sid, waiting.room_code)
+
+            await sio.emit("game_joined", {
+                "room_code": waiting.room_code,
+                "game_slug": game_slug,
+                "game_name": game.name,
+                "status": "playing",
+                "state": gs.state_json,
+                "player1": p1,
+                "player2": p2,
+                "your_player": 2,
+            }, to=sid)
+
+            await sio.emit("game_started", {
+                "room_code": waiting.room_code,
+                "status": "playing",
+                "state": gs.state_json,
+                "player2": p2,
+            }, room=waiting.room_code, skip_sid=sid)
     else:
         await create_game(sid, {"game_slug": game_slug})

@@ -19,6 +19,7 @@ export default defineConfig({
       '/crossdomain.xml': 'http://127.0.0.1:5050',
       '/assets': 'http://127.0.0.1:5050',
       '/stub': 'http://127.0.0.1:5050',
+      '/wave-drifter-assets': 'http://127.0.0.1:5050',
       '/default01.static.socialpointgames.com': 'http://127.0.0.1:5050',
       '/dynamic.flash1.dev.socialpoint.es': 'http://127.0.0.1:5050',
     },

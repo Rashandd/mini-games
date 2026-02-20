@@ -4,7 +4,6 @@ import api from '../api'
 import useGameStore from '../stores/gameStore'
 import useAuthStore from '../stores/authStore'
 import TicTacToeBoard from '../components/boards/TicTacToeBoard'
-import ChessBoard from '../components/boards/ChessBoard'
 import CheckersBoard from '../components/boards/CheckersBoard'
 import BackgammonBoard from '../components/boards/BackgammonBoard'
 
@@ -21,9 +20,11 @@ export default function GameRoomPage() {
   const [sort, setSort] = useState('newest')
   const [chatMessages, setChatMessages] = useState([])
   const [chatInput, setChatInput] = useState('')
+  const [stats, setStats] = useState({ waiting: 0, playing: 0 })
 
   const loadLobbies = useCallback(() => {
     api.get(`/lobbies/${slug}`).then((r) => setLobbies(r.data)).catch(() => {})
+    api.get(`/game-stats/${slug}`).then((r) => setStats(r.data)).catch(() => {})
   }, [slug])
 
   useEffect(() => {
@@ -66,63 +67,146 @@ export default function GameRoomPage() {
     const props = { state: game.state, yourPlayer: game.yourPlayer, onMove: game.makeMove, gameOver: game.gameOver }
     switch (game.gameSlug) {
       case 'tic-tac-toe': return <TicTacToeBoard {...props} />
-      case 'chess': return <ChessBoard {...props} />
       case 'checkers': return <CheckersBoard {...props} />
       case 'backgammon': return <BackgammonBoard {...props} />
       default: return <div className="glass-card"><p>No board renderer for {game.gameSlug}</p></div>
     }
   }
 
+  const gameName = slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+
+  // Determine whose turn it is
+  const currentTurn = game.state?.current_player
+  const isYourTurn = currentTurn === game.yourPlayer
+
   // In-game view
   if (game.roomCode && game.status) {
     return (
-      <div className="page-content game-active">
-        <div className="game-info-bar">
-          <h2>{game.gameName || slug}</h2>
-          <span className="room-code">Room: {game.roomCode}</span>
-          <span className="status-badge">{game.status}</span>
+      <div className="page-content game-active" style={{ maxWidth: 700, margin: '0 auto' }}>
+        {/* Game header bar */}
+        <div className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <h2 style={{ margin: 0, fontSize: '1.1rem' }}>{game.gameName || gameName}</h2>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', background: 'var(--card-bg)', padding: '2px 8px', borderRadius: 8, fontFamily: 'monospace' }}>{game.roomCode}</span>
+          </div>
+          <span style={{
+            padding: '3px 10px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600,
+            background: game.status === 'playing' ? 'var(--accent-green)' : game.status === 'waiting' ? 'var(--accent)' : '#666',
+            color: '#000',
+          }}>
+            {game.status === 'playing' ? '🟢 Playing' : game.status === 'waiting' ? '⏳ Waiting' : '🏁 Finished'}
+          </span>
         </div>
 
-        <div className="game-layout">
-          <div className="game-players">
-            <div className={`player-tag ${game.yourPlayer === 1 ? 'you' : ''}`}>
-              👤 {game.player1 || '?'} {game.yourPlayer === 1 && '(You)'}
+        {/* Player cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          <div className="glass-card" style={{
+            padding: '10px 16px', textAlign: 'center',
+            border: game.status === 'playing' && currentTurn === 1 ? '2px solid var(--accent-green)' : '2px solid transparent',
+            opacity: game.status === 'playing' && currentTurn === 2 ? 0.6 : 1,
+            transition: 'all 0.3s ease',
+          }}>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: 2 }}>
+              {game.yourPlayer === 1 ? '👤 YOU' : '👤 OPPONENT'}
             </div>
-            <span className="vs-badge">VS</span>
-            <div className={`player-tag ${game.yourPlayer === 2 ? 'you' : ''}`}>
-              👤 {game.player2 || 'Waiting...'} {game.yourPlayer === 2 && '(You)'}
+            <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>
+              {game.player1 || '?'} {game.gameSlug === 'tic-tac-toe' && <span style={{ color: 'var(--accent)' }}>✕</span>}
             </div>
+            {game.status === 'playing' && currentTurn === 1 && (
+              <div style={{ fontSize: '0.65rem', color: 'var(--accent-green)', marginTop: 2, fontWeight: 600 }}>▶ TURN</div>
+            )}
           </div>
 
-          {game.status === 'waiting' && (
-            <div className="glass-card waiting-card">
-              <div className="spinner"></div>
-              <p>Waiting for opponent to join...</p>
-              <p className="muted">Share room code: <strong>{game.roomCode}</strong></p>
+          <span style={{ fontWeight: 800, fontSize: '0.85rem', color: 'var(--text-muted)' }}>VS</span>
+
+          <div className="glass-card" style={{
+            padding: '10px 16px', textAlign: 'center',
+            border: game.status === 'playing' && currentTurn === 2 ? '2px solid var(--accent-green)' : '2px solid transparent',
+            opacity: game.status === 'playing' && currentTurn === 1 ? 0.6 : 1,
+            transition: 'all 0.3s ease',
+          }}>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: 2 }}>
+              {game.yourPlayer === 2 ? '👤 YOU' : '👤 OPPONENT'}
             </div>
-          )}
-
-          {game.status === 'playing' && renderBoard()}
-
-          {game.gameOver && (
-            <div className="glass-card game-over-card">
-              <h2>🏆 Game Over!</h2>
-              <p className="winner-text">
-                {game.resigned
-                  ? `${game.resigned} resigned. ${game.winnerName} wins!`
-                  : game.winnerName === 'Draw'
-                    ? "It's a draw!"
-                    : `${game.winnerName} wins!`
-                }
-              </p>
-              <button className="btn btn-primary" onClick={() => game.reset()}>Back to Lobby</button>
+            <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>
+              {game.player2 || '...'} {game.gameSlug === 'tic-tac-toe' && <span style={{ color: '#4fc3f7' }}>○</span>}
             </div>
-          )}
-
-          {game.status === 'playing' && !game.gameOver && (
-            <button className="btn btn-danger btn-sm" onClick={game.resignGame}>🏳️ Resign</button>
-          )}
+            {game.status === 'playing' && currentTurn === 2 && (
+              <div style={{ fontSize: '0.65rem', color: 'var(--accent-green)', marginTop: 2, fontWeight: 600 }}>▶ TURN</div>
+            )}
+          </div>
         </div>
+
+        {/* Turn banner */}
+        {game.status === 'playing' && !game.gameOver && (
+          <div style={{
+            textAlign: 'center', padding: '8px 16px', borderRadius: 10, marginBottom: 16, fontWeight: 600, fontSize: '0.85rem',
+            background: isYourTurn ? 'rgba(76, 175, 80, 0.15)' : 'rgba(255, 167, 38, 0.15)',
+            color: isYourTurn ? 'var(--accent-green)' : '#ffa726',
+            border: `1px solid ${isYourTurn ? 'rgba(76, 175, 80, 0.3)' : 'rgba(255, 167, 38, 0.3)'}`,
+          }}>
+            {isYourTurn ? '🟢 Your turn — make a move!' : "🟡 Opponent's turn — waiting..."}
+          </div>
+        )}
+
+        {/* Waiting screen */}
+        {game.status === 'waiting' && (
+          <div className="glass-card" style={{ textAlign: 'center', padding: '32px 24px' }}>
+            <div className="spinner" style={{ marginBottom: 16 }}></div>
+            <p style={{ fontWeight: 600, marginBottom: 4 }}>Waiting for opponent...</p>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 16 }}>
+              Share code: <strong style={{ fontFamily: 'monospace', letterSpacing: 1 }}>{game.roomCode}</strong>
+            </p>
+            <button
+              className="btn btn-sm"
+              onClick={() => game.deleteGame(game.roomCode)}
+              style={{ background: 'rgba(244,67,54,0.15)', color: '#ef5350', border: '1px solid rgba(244,67,54,0.3)', fontWeight: 600 }}
+            >
+              ✕ Cancel Room
+            </button>
+          </div>
+        )}
+
+        {/* Board */}
+        {game.status === 'playing' && (
+          <div style={{ marginBottom: 16 }}>
+            {renderBoard()}
+          </div>
+        )}
+
+        {/* Game Over */}
+        {game.gameOver && (
+          <div className="glass-card" style={{ textAlign: 'center', padding: '24px' }}>
+            <h2 style={{ margin: '0 0 8px 0', fontSize: '1.3rem' }}>🏆 Game Over!</h2>
+            <p style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 16 }}>
+              {game.resigned
+                ? `${game.resigned} resigned. ${game.winnerName} wins!`
+                : game.winnerName === 'Draw'
+                  ? "It's a draw! 🤝"
+                  : `${game.winnerName} wins! 🎉`
+              }
+            </p>
+            <button className="btn btn-primary" onClick={() => game.reset()}>← Back to Lobby</button>
+          </div>
+        )}
+
+        {/* Resign button */}
+        {game.status === 'playing' && !game.gameOver && (
+          <div style={{ textAlign: 'center', marginTop: 8 }}>
+            <button
+              onClick={game.resignGame}
+              style={{
+                background: 'transparent', border: '1px solid rgba(244,67,54,0.4)', color: '#ef5350',
+                padding: '6px 18px', borderRadius: 8, fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseOver={(e) => { e.target.style.background = 'rgba(244,67,54,0.1)' }}
+              onMouseOut={(e) => { e.target.style.background = 'transparent' }}
+            >
+              🏳️ Resign Game
+            </button>
+          </div>
+        )}
       </div>
     )
   }
@@ -131,8 +215,16 @@ export default function GameRoomPage() {
   return (
     <div className="page-content">
       <div className="lobby-header">
-        <h2>{slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())} Lobby</h2>
-        <button className="btn btn-accent btn-sm" onClick={() => game.findMatch(slug)}>⚡ Quick Match</button>
+        <h2>{gameName} Lobby</h2>
+        <div className="lobby-stats" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <span className="stat-pill" style={{ background: 'var(--accent-green)', color: '#000', padding: '4px 12px', borderRadius: 20, fontSize: '0.8rem', fontWeight: 600 }}>
+            🟢 {stats.playing} Playing
+          </span>
+          <span className="stat-pill" style={{ background: 'var(--accent)', color: '#000', padding: '4px 12px', borderRadius: 20, fontSize: '0.8rem', fontWeight: 600 }}>
+            ⏳ {stats.waiting} Waiting
+          </span>
+          <button className="btn btn-accent btn-sm" onClick={() => game.findMatch(slug)}>⚡ Quick Match</button>
+        </div>
       </div>
 
       <div className="glass-card">
