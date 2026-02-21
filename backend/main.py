@@ -133,9 +133,24 @@ async def health():
 
 if __name__ == "__main__":
     import uvicorn
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Mini Games Platform Backend Server")
+    parser.add_argument(
+        "--host", 
+        type=str, 
+        choices=["local", "all"], 
+        default="local",
+        help="Use 'local' for 127.0.0.1 (default, for reverse proxy/local testing) or 'all' for 0.0.0.0 (all available IPs)"
+    )
+    args = parser.parse_args()
+
+    # Determine host based on argument, fallback to config if local
+    bind_host = "0.0.0.0" if args.host == "all" else settings.HOST
+
     uvicorn.run(
         "main:socket_app",
-        host=settings.HOST,
+        host=bind_host,
         port=settings.PORT,
         reload=True,
     )

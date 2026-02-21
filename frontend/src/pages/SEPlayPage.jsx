@@ -7,7 +7,16 @@ const GAME_VERSION = 'SocialEmpires0926bsec.swf'
 export default function SEPlayPage() {
   const { userid } = useParams()
   const ruffleRef = useRef(null)
+  const playerRef = useRef(null)
   const [status, setStatus] = useState('Loading...')
+  const [volume, setVolume] = useState(50)
+
+  const handleVolume = (val) => {
+    setVolume(val)
+    if (playerRef.current && typeof playerRef.current.volume !== 'undefined') {
+      playerRef.current.volume = val / 100
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -51,6 +60,7 @@ export default function SEPlayPage() {
       player.style.width = '760px'
       player.style.height = '625px'
       player.style.display = 'block'
+      playerRef.current = player
 
       // Append to the raw DOM ref (React won't touch this div's children)
       ruffleRef.current.appendChild(player)
@@ -80,6 +90,11 @@ export default function SEPlayPage() {
         ].join('&'),
       })
 
+      // Apply initial volume
+      if (typeof player.volume !== 'undefined') {
+        player.volume = volume / 100
+      }
+
       setStatus('')
     }
 
@@ -87,6 +102,7 @@ export default function SEPlayPage() {
 
     return () => {
       cancelled = true
+      playerRef.current = null
       // Clean up Ruffle player on unmount — use raw DOM, not React
       if (ruffleRef.current) {
         ruffleRef.current.innerHTML = ''
@@ -115,9 +131,69 @@ export default function SEPlayPage() {
         style={{ width: 760, height: 625, margin: '0 auto', background: '#669C2C', borderRadius: 8 }}
       />
 
-      <div style={{ textAlign: 'center', marginTop: 12, color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-        Powered by <a href="https://ruffle.rs/" target="_blank" rel="noreferrer">Ruffle</a> Flash Emulator
+      {/* Volume control */}
+      <div className="game-controls-bar">
+        <div className="volume-control">
+          <span className="volume-icon" onClick={() => handleVolume(volume > 0 ? 0 : 50)}>
+            {volume === 0 ? '🔇' : volume < 40 ? '🔉' : '🔊'}
+          </span>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={volume}
+            onChange={(e) => handleVolume(Number(e.target.value))}
+            className="volume-slider"
+          />
+          <span className="volume-value">{volume}%</span>
+        </div>
+        <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+          Powered by <a href="https://ruffle.rs/" target="_blank" rel="noreferrer">Ruffle</a> Flash Emulator
+        </div>
+      </div>
+
+      {/* Tutorial */}
+      <div className="game-tutorial">
+        <h3>📖 How to Play Social Empires</h3>
+        <div className="tutorial-steps">
+          <div className="tutorial-step">
+            <span className="step-num">1</span>
+            <div>
+              <strong>Build Your Empire</strong>
+              <p>Place buildings from the <em>BUILD</em> menu (bottom-right). Start with houses to increase population and mills to produce gold.</p>
+            </div>
+          </div>
+          <div className="tutorial-step">
+            <span className="step-num">2</span>
+            <div>
+              <strong>Train Your Army</strong>
+              <p>Build barracks and training camps. Click them to recruit soldiers — you'll need warriors, archers, and cavalry to defend your empire.</p>
+            </div>
+          </div>
+          <div className="tutorial-step">
+            <span className="step-num">3</span>
+            <div>
+              <strong>Collect Resources</strong>
+              <p>Click on buildings when they show a coin/resource icon to collect gold, food, wood, and stone. Use these to expand.</p>
+            </div>
+          </div>
+          <div className="tutorial-step">
+            <span className="step-num">4</span>
+            <div>
+              <strong>Complete Quests</strong>
+              <p>Follow Arthur's tutorial quests for rewards. Check the quest panel on the left side for objectives and XP bonuses.</p>
+            </div>
+          </div>
+          <div className="tutorial-step">
+            <span className="step-num">5</span>
+            <div>
+              <strong>Battle Enemies</strong>
+              <p>Drag your troops to attack enemy units and bosses that appear on your map. Winning battles earns experience and rare items.</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )
 }
+

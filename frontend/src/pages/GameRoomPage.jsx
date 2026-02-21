@@ -289,6 +289,109 @@ export default function GameRoomPage() {
           </div>
         </div>
       )}
+
+      {/* Game Tutorial */}
+      <div className="game-tutorial">
+        <h3>📖 How to Play {gameName}</h3>
+        <div className="tutorial-steps">
+          {slug === 'tic-tac-toe' && (
+            <>
+              <div className="tutorial-step">
+                <span className="step-num">1</span>
+                <div>
+                  <strong>Take Turns</strong>
+                  <p>Player 1 is ✕, Player 2 is ○. Click any empty cell on the 3×3 grid to place your mark.</p>
+                </div>
+              </div>
+              <div className="tutorial-step">
+                <span className="step-num">2</span>
+                <div>
+                  <strong>Get Three in a Row</strong>
+                  <p>Line up three of your marks horizontally, vertically, or diagonally to win the game.</p>
+                </div>
+              </div>
+              <div className="tutorial-step">
+                <span className="step-num">3</span>
+                <div>
+                  <strong>Block Your Opponent</strong>
+                  <p>Watch for your opponent getting two in a row — block them before they complete three!</p>
+                </div>
+              </div>
+              <div className="tutorial-step">
+                <span className="step-num">4</span>
+                <div>
+                  <strong>Draw</strong>
+                  <p>If all 9 cells are filled and no one has three in a row, the game ends in a draw.</p>
+                </div>
+              </div>
+            </>
+          )}
+          {slug === 'checkers' && (
+            <>
+              <div className="tutorial-step">
+                <span className="step-num">1</span>
+                <div>
+                  <strong>Move Diagonally</strong>
+                  <p>Click a piece, then click a diagonal square to move. Regular pieces can only move forward.</p>
+                </div>
+              </div>
+              <div className="tutorial-step">
+                <span className="step-num">2</span>
+                <div>
+                  <strong>Jump to Capture</strong>
+                  <p>Jump over an opponent's piece diagonally to capture it. Multi-jumps are possible in one turn!</p>
+                </div>
+              </div>
+              <div className="tutorial-step">
+                <span className="step-num">3</span>
+                <div>
+                  <strong>Get Kinged</strong>
+                  <p>Reach the opposite end of the board to become a <em>King</em> — kings can move and jump in both directions.</p>
+                </div>
+              </div>
+              <div className="tutorial-step">
+                <span className="step-num">4</span>
+                <div>
+                  <strong>Win the Game</strong>
+                  <p>Capture all of your opponent's pieces or block them so they can't make any moves.</p>
+                </div>
+              </div>
+            </>
+          )}
+          {slug === 'backgammon' && (
+            <>
+              <div className="tutorial-step">
+                <span className="step-num">1</span>
+                <div>
+                  <strong>Roll the Dice</strong>
+                  <p>Each turn, two dice are rolled. Move your checkers forward by the number shown on each die.</p>
+                </div>
+              </div>
+              <div className="tutorial-step">
+                <span className="step-num">2</span>
+                <div>
+                  <strong>Move Your Checkers</strong>
+                  <p>Click a point with your checkers, then click the destination. You can only land on open points or points you already occupy.</p>
+                </div>
+              </div>
+              <div className="tutorial-step">
+                <span className="step-num">3</span>
+                <div>
+                  <strong>Hit & Enter from Bar</strong>
+                  <p>Land on a point with a single opponent checker to send it to the bar. They must re-enter before making other moves.</p>
+                </div>
+              </div>
+              <div className="tutorial-step">
+                <span className="step-num">4</span>
+                <div>
+                  <strong>Bear Off to Win</strong>
+                  <p>Once all 15 of your checkers are in your home board (last 6 points), start bearing them off. First to bear off all checkers wins!</p>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
