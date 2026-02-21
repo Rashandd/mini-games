@@ -4,6 +4,15 @@ import api from '../api'
 import { getSocket } from '../socket'
 import useAuthStore from '../stores/authStore'
 
+// Map game slugs to FA icon classes (used when game icon comes from DB as emoji legacy)
+const GAME_FA_ICONS = {
+  'tic-tac-toe': 'fa-xmark',
+  'checkers':    'fa-flag-checkered',
+  'backgammon':  'fa-dice',
+  'social-empires': 'fa-shield-halved',
+  'wave-drifter': 'fa-skull-crossbones',
+}
+
 export default function HomePage() {
   const [games, setGames] = useState([])
   const [onlineCount, setOnlineCount] = useState(0)
@@ -34,7 +43,7 @@ export default function HomePage() {
   return (
     <div className="page-content">
       <div className="home-header">
-        <h1>🎮 Game Lobby</h1>
+        <h1><i className="fa-solid fa-gamepad"></i> Game Lobby</h1>
         <div className="online-pill">
           <span className="online-dot"></span>
           {onlineCount} Online
@@ -44,7 +53,9 @@ export default function HomePage() {
       <div className="game-grid">
         {games.map((g) => (
           <div key={g.id} className="glass-card game-card" onClick={() => handlePlay(g.slug)}>
-            <div className="game-card-icon">{g.icon}</div>
+            <div className="game-card-icon">
+              <i className={`fa-solid ${GAME_FA_ICONS[g.slug] || 'fa-gamepad'}`}></i>
+            </div>
             <h3 className="game-card-title">{g.name}</h3>
             <p className="game-card-desc">{g.description}</p>
             <div className="game-card-meta">

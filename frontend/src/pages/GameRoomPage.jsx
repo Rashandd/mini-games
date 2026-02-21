@@ -81,8 +81,8 @@ export default function GameRoomPage() {
 
   // In-game view
   if (game.roomCode && game.status) {
-    const statusClass = game.status === 'playing' ? 'status-pill--playing' : game.status === 'waiting' ? 'status-pill--waiting' : 'status-pill--finished'
-    const statusLabel = game.status === 'playing' ? '🟢 Playing' : game.status === 'waiting' ? '⏳ Waiting' : '🏁 Finished'
+    const statusIcon = game.status === 'playing' ? 'fa-circle-play' : game.status === 'waiting' ? 'fa-hourglass-half' : 'fa-flag-checkered'
+    const statusLabel = game.status === 'playing' ? 'Playing' : game.status === 'waiting' ? 'Waiting' : 'Finished'
 
     return (
       <div className="page-content game-active">
@@ -92,14 +92,16 @@ export default function GameRoomPage() {
             <h2 className="game-header-title">{game.gameName || gameName}</h2>
             <span className="room-code-badge">{game.roomCode}</span>
           </div>
-          <span className={`status-pill ${statusClass}`}>{statusLabel}</span>
+          <span className={`status-pill ${game.status === 'playing' ? 'status-pill--playing' : game.status === 'waiting' ? 'status-pill--waiting' : 'status-pill--finished'}`}>
+            <i className={`fa-solid ${statusIcon}`}></i> {statusLabel}
+          </span>
         </div>
 
         {/* Player cards */}
         <div className="players-grid">
           <div className={`glass-card player-card ${game.status === 'playing' && currentTurn === 1 ? 'player-card--active' : ''} ${game.status === 'playing' && currentTurn === 2 ? 'player-card--inactive' : ''}`}>
             <div className="player-label">
-              {game.yourPlayer === 1 ? '👤 YOU' : '👤 OPPONENT'}
+              <i className="fa-solid fa-user"></i> {game.yourPlayer === 1 ? 'YOU' : 'OPPONENT'}
             </div>
             <div className="player-name">
               {game.player1 || '?'} {game.gameSlug === 'tic-tac-toe' && <span className="mark-x">✕</span>}
@@ -113,7 +115,7 @@ export default function GameRoomPage() {
 
           <div className={`glass-card player-card ${game.status === 'playing' && currentTurn === 2 ? 'player-card--active' : ''} ${game.status === 'playing' && currentTurn === 1 ? 'player-card--inactive' : ''}`}>
             <div className="player-label">
-              {game.yourPlayer === 2 ? '👤 YOU' : '👤 OPPONENT'}
+              <i className="fa-solid fa-user"></i> {game.yourPlayer === 2 ? 'YOU' : 'OPPONENT'}
             </div>
             <div className="player-name">
               {game.player2 || '...'} {game.gameSlug === 'tic-tac-toe' && <span className="mark-o">○</span>}
@@ -127,7 +129,10 @@ export default function GameRoomPage() {
         {/* Turn banner */}
         {game.status === 'playing' && !game.gameOver && (
           <div className={`turn-banner ${isYourTurn ? 'turn-banner--yours' : 'turn-banner--theirs'}`}>
-            {isYourTurn ? '🟢 Your turn — make a move!' : "🟡 Opponent's turn — waiting..."}
+            {isYourTurn
+              ? <><i className="fa-solid fa-circle" style={{ color: 'var(--accent-green)' }}></i> Your turn — make a move!</>
+              : <><i className="fa-solid fa-circle" style={{ color: '#ffa726' }}></i> Opponent's turn — waiting...</>
+            }
           </div>
         )}
 
@@ -143,7 +148,7 @@ export default function GameRoomPage() {
               className="btn btn-sm cancel-room-btn"
               onClick={() => game.deleteGame(game.roomCode)}
             >
-              ✕ Cancel Room
+              <i className="fa-solid fa-xmark"></i> Cancel Room
             </button>
           </div>
         )}
@@ -158,13 +163,13 @@ export default function GameRoomPage() {
         {/* Game Over */}
         {game.gameOver && (
           <div className="glass-card gameover-card">
-            <h2 className="gameover-title">🏆 Game Over!</h2>
+            <h2 className="gameover-title"><i className="fa-solid fa-trophy"></i> Game Over!</h2>
             <p className="gameover-result">
               {game.resigned
                 ? `${game.resigned} resigned. ${game.winnerName} wins!`
                 : game.winnerName === 'Draw'
-                  ? "It's a draw! 🤝"
-                  : `${game.winnerName} wins! 🎉`
+                  ? "It's a draw!"
+                  : `${game.winnerName} wins!`
               }
             </p>
             <button className="btn btn-primary" onClick={() => game.reset()}>← Back to Lobby</button>
@@ -175,7 +180,7 @@ export default function GameRoomPage() {
         {game.status === 'playing' && !game.gameOver && (
           <div className="resign-wrapper">
             <button className="resign-btn" onClick={game.resignGame}>
-              🏳️ Resign Game
+              <i className="fa-solid fa-flag"></i> Resign Game
             </button>
           </div>
         )}
@@ -190,20 +195,26 @@ export default function GameRoomPage() {
         <h2>{gameName} Lobby</h2>
         <div className="lobby-stats">
           <span className="stat-pill stat-pill--playing">
-            🟢 {stats.playing} Playing
+            <i className="fa-solid fa-circle" style={{ color: '#000' }}></i> {stats.playing} Playing
           </span>
           <span className="stat-pill stat-pill--waiting">
-            ⏳ {stats.waiting} Waiting
+            <i className="fa-solid fa-hourglass-half"></i> {stats.waiting} Waiting
           </span>
-          <button className="btn btn-accent btn-sm" onClick={() => game.findMatch(slug)}>⚡ Quick Match</button>
+          <button className="btn btn-accent btn-sm" onClick={() => game.findMatch(slug)}>
+            <i className="fa-solid fa-bolt"></i> Quick Match
+          </button>
         </div>
       </div>
 
       <div className="glass-card">
         <h3>Create Game</h3>
         <div className="create-buttons">
-          <button className="btn btn-primary btn-sm" onClick={createPublicGame}>🌍 Public Game</button>
-          <button className="btn btn-gold btn-sm" onClick={() => setShowPrivateForm(!showPrivateForm)}>🔒 Private Game</button>
+          <button className="btn btn-primary btn-sm" onClick={createPublicGame}>
+            <i className="fa-solid fa-globe"></i> Public Game
+          </button>
+          <button className="btn btn-gold btn-sm" onClick={() => setShowPrivateForm(!showPrivateForm)}>
+            <i className="fa-solid fa-lock"></i> Private Game
+          </button>
         </div>
         {showPrivateForm && (
           <div className="private-form">
@@ -233,7 +244,9 @@ export default function GameRoomPage() {
             <p className="muted center">No open games. Create one!</p>
           ) : filtered.map((l) => (
             <div key={l.room_code} className="lobby-item" onClick={() => joinLobby(l)}>
-              <span className="lobby-host">{l.is_private ? '🔒' : '🌍'} {l.host}</span>
+              <span className="lobby-host">
+                <i className={`fa-solid ${l.is_private ? 'fa-lock' : 'fa-globe'}`}></i> {l.host}
+              </span>
               <span className="lobby-age">{l.age}</span>
               <button className="btn btn-sm btn-primary">Join</button>
             </div>
@@ -245,7 +258,7 @@ export default function GameRoomPage() {
       {joinRoomCode && (
         <div className="modal-overlay" onClick={() => setJoinRoomCode(null)}>
           <div className="glass-card modal-card" onClick={(e) => e.stopPropagation()}>
-            <h3>🔒 Private Game</h3>
+            <h3><i className="fa-solid fa-lock"></i> Private Game</h3>
             <p className="muted">Enter the password to join.</p>
             <input
               className="form-input"
@@ -264,7 +277,7 @@ export default function GameRoomPage() {
 
       {/* Game Tutorial */}
       <div className="game-tutorial">
-        <h3>📖 How to Play {gameName}</h3>
+        <h3><i className="fa-solid fa-book-open"></i> How to Play {gameName}</h3>
         <div className="tutorial-steps">
           {slug === 'tic-tac-toe' && (
             <>

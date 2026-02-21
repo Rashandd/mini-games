@@ -32,7 +32,9 @@ export default function LoginPage() {
     <div className="login-page">
       <div className="login-container">
         <div className="login-header">
-          <h1 className="login-title">🎮 Mini Games</h1>
+          <h1 className="login-title">
+            <i className="fa-solid fa-gamepad"></i> Mini Games
+          </h1>
           <p className="login-subtitle">Play classic and strategy games with friends online</p>
         </div>
 

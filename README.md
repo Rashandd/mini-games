@@ -227,6 +227,59 @@ Based on the [Social Emperors](https://github.com/AcidCaos/socialemperors) prese
 
 ---
 
+## 🎨 Frontend Development Guidelines
+
+These rules apply to all frontend contributions to maintain consistency and code quality.
+
+### No Inline Styles
+
+Strictly avoid using `style={{...}}` attributes in JSX. All styles must be written as reusable CSS classes in [`frontend/src/styles/index.css`](./frontend/src/styles/index.css).
+
+```jsx
+// ❌ Bad
+<div style={{ display: 'flex', gap: 12, color: 'var(--text-muted)' }}>
+
+// ✅ Good
+<div className="my-class-name">
+```
+
+**Exception:** Dynamic, runtime-dependent values that cannot be expressed statically (e.g. `display: loading ? 'none' : 'block'`) are allowed.
+
+### Icon Usage
+
+Do **not** use emoji characters (`🎮 🏆 🔒`) in the UI. Always use **FontAwesome 6 Free** icons to maintain a professional and consistent look across all browsers and devices.
+
+FontAwesome 6.5 is loaded via CDN in [`frontend/index.html`](./frontend/index.html). Usage:
+
+```jsx
+// ❌ Bad — emoji in UI
+<button>🔒 Private Game</button>
+
+// ✅ Good — FontAwesome icon
+<button><i className="fa-solid fa-lock"></i> Private Game</button>
+```
+
+**Exception:** Game piece symbols (♔ ♕ ♖ ⬤ ♛) used inside board renderers are Unicode text for game logic and are kept as-is.
+
+### Class Naming Convention
+
+Follow **kebab-case** naming with semantic, descriptive names. Use BEM-style modifiers (`block__element--modifier`) for variants.
+
+```css
+/* ✅ Good */
+.player-card { ... }
+.player-card--active { border-color: var(--accent-green); }
+.player-card--inactive { opacity: 0.6; }
+
+/* ❌ Bad — generic, undescriptive, or camelCase */
+.div1 { ... }
+.playerCard { ... }
+```
+
+**Before creating a new class**, search `index.css` for an existing class with similar properties to avoid duplication.
+
+---
+
 ## 📄 License [![GPL v3](https://img.shields.io/badge/GPL%20v3-blue)](http://www.gnu.org/licenses/gpl-3.0)
 
 ```
@@ -234,3 +287,4 @@ Mini Games Platform — Social Empires preservation project.
 Copyright (C) 2022  The Social Emperors team
 See the GNU General Public License <https://www.gnu.org/licenses/>.
 ```
+

@@ -18,11 +18,16 @@ export default function SEPlayPage() {
     }
   }
 
+  const getVolumeIcon = () => {
+    if (volume === 0) return 'fa-volume-xmark'
+    if (volume < 40) return 'fa-volume-low'
+    return 'fa-volume-high'
+  }
+
   useEffect(() => {
     let cancelled = false
 
     async function init() {
-      // Fetch server time and friends info
       let serverTime = Math.floor(Date.now() / 1000)
       let friendsInfo = '[]'
       try {
@@ -41,7 +46,6 @@ export default function SEPlayPage() {
       if (cancelled) return
       setStatus('Loading Ruffle...')
 
-      // Load Ruffle — use a script tag outside React's DOM tree
       if (!window.RufflePlayer) {
         await new Promise((resolve, reject) => {
           const script = document.createElement('script')
@@ -62,7 +66,6 @@ export default function SEPlayPage() {
       player.style.display = 'block'
       playerRef.current = player
 
-      // Append to the raw DOM ref (React won't touch this div's children)
       ruffleRef.current.appendChild(player)
 
       player.load({
@@ -90,7 +93,6 @@ export default function SEPlayPage() {
         ].join('&'),
       })
 
-      // Apply initial volume
       if (typeof player.volume !== 'undefined') {
         player.volume = volume / 100
       }
@@ -103,7 +105,6 @@ export default function SEPlayPage() {
     return () => {
       cancelled = true
       playerRef.current = null
-      // Clean up Ruffle player on unmount — use raw DOM, not React
       if (ruffleRef.current) {
         ruffleRef.current.innerHTML = ''
       }
@@ -112,7 +113,6 @@ export default function SEPlayPage() {
 
   return (
     <div className="se-play-page">
-      {/* Status message — outside the Ruffle container so React doesn't conflict */}
       {status && (
         <div className="game-loading">
           <div className="spinner center-spinner"></div>
@@ -120,14 +120,13 @@ export default function SEPlayPage() {
         </div>
       )}
 
-      {/* Ruffle mounts here — React never touches children of this div */}
       <div ref={ruffleRef} className="se-ruffle-container" />
 
       {/* Volume control */}
       <div className="game-controls-bar">
         <div className="volume-control">
           <span className="volume-icon" onClick={() => handleVolume(volume > 0 ? 0 : 50)}>
-            {volume === 0 ? '🔇' : volume < 40 ? '🔉' : '🔊'}
+            <i className={`fa-solid ${getVolumeIcon()}`}></i>
           </span>
           <input
             type="range"
@@ -146,13 +145,15 @@ export default function SEPlayPage() {
 
       {/* Game title bar — positioned below controls */}
       <div className="game-title-bar">
-        <span className="game-title-icon">⚔️</span>
+        <span className="game-title-icon">
+          <i className="fa-solid fa-shield-halved"></i>
+        </span>
         <span className="game-title-name">Social Empires</span>
       </div>
 
       {/* Tutorial */}
       <div className="game-tutorial">
-        <h3>📖 How to Play Social Empires</h3>
+        <h3><i className="fa-solid fa-book-open"></i> How to Play Social Empires</h3>
         <div className="tutorial-steps">
           <div className="tutorial-step">
             <span className="step-num">1</span>

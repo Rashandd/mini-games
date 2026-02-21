@@ -57,13 +57,15 @@ export default function ChatSidebar() {
   return (
     <>
       <button className="chat-toggle-btn" onClick={() => setOpen(!open)}>
-        💬
+        <i className="fa-solid fa-comment"></i>
       </button>
 
       <div className={`chat-sidebar ${open ? 'open' : ''}`}>
         <div className="chat-sidebar-header">
           <h3>Chat</h3>
-          <button className="btn btn-sm btn-ghost" onClick={() => setOpen(false)}>✕</button>
+          <button className="btn btn-sm btn-ghost" onClick={() => setOpen(false)}>
+            <i className="fa-solid fa-xmark"></i>
+          </button>
         </div>
 
         {!chat.activeRoomId ? (
@@ -80,7 +82,7 @@ export default function ChatSidebar() {
                 <div className="search-results">
                   {searchResults.map((u) => (
                     <div key={u.id} className="search-result-item" onClick={() => startDM(u.id)}>
-                      👤 {u.username}
+                      <i className="fa-solid fa-user"></i> {u.username}
                     </div>
                   ))}
                 </div>
@@ -88,7 +90,7 @@ export default function ChatSidebar() {
             </div>
 
             <button className="btn btn-sm btn-accent btn-full" onClick={() => setShowNewGroup(!showNewGroup)}>
-              + New Group
+              <i className="fa-solid fa-plus"></i> New Group
             </button>
             {showNewGroup && (
               <div className="new-group-form">
@@ -100,7 +102,9 @@ export default function ChatSidebar() {
             <div className="room-items">
               {chat.rooms.map((r) => (
                 <div key={r.id} className="room-item" onClick={() => chat.setActiveRoom(r.id)}>
-                  <span className="room-icon">{r.type === 'dm' ? '👤' : '👥'}</span>
+                  <span className="room-icon">
+                    <i className={`fa-solid ${r.type === 'dm' ? 'fa-user' : 'fa-users'}`}></i>
+                  </span>
                   <span className="room-name">{r.name}</span>
                 </div>
               ))}
@@ -110,7 +114,9 @@ export default function ChatSidebar() {
         ) : (
           <div className="chat-messages-view">
             <div className="chat-messages-header">
-              <button className="btn btn-sm btn-ghost" onClick={() => useChatStore.setState({ activeRoomId: null, messages: [] })}>← Back</button>
+              <button className="btn btn-sm btn-ghost" onClick={() => useChatStore.setState({ activeRoomId: null, messages: [] })}>
+                <i className="fa-solid fa-arrow-left"></i> Back
+              </button>
               <span className="chat-room-name">{chat.rooms.find((r) => r.id === chat.activeRoomId)?.name || 'Chat'}</span>
             </div>
 

@@ -16,14 +16,22 @@ export default function Navbar() {
 
   return (
     <nav className="navbar">
-      <Link to="/" className="nav-brand">🎮 Mini Games</Link>
+      <Link to="/" className="nav-brand">
+        <i className="fa-solid fa-gamepad"></i> Mini Games
+      </Link>
       <div className="nav-links">
         <Link to="/" className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}>Home</Link>
-        <Link to="/leaderboard" className={`nav-link ${isActive('/leaderboard') ? 'active' : ''}`}>🏆 Leaderboard</Link>
-        <Link to="/social-empires" className={`nav-link ${isActive('/social-empires') ? 'active' : ''}`}>⚔️ Social Empires</Link>
+        <Link to="/leaderboard" className={`nav-link ${isActive('/leaderboard') ? 'active' : ''}`}>
+          <i className="fa-solid fa-trophy"></i> Leaderboard
+        </Link>
+        <Link to="/social-empires" className={`nav-link ${isActive('/social-empires') ? 'active' : ''}`}>
+          <i className="fa-solid fa-shield-halved"></i> Social Empires
+        </Link>
       </div>
       <div className="nav-user">
-        <span className="nav-username">👤 {user?.username}</span>
+        <span className="nav-username">
+          <i className="fa-solid fa-user"></i> {user?.username}
+        </span>
         <button className="btn btn-sm btn-ghost" onClick={handleLogout}>Logout</button>
       </div>
     </nav>

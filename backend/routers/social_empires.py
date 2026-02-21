@@ -96,27 +96,30 @@ async def se_static_assets(path: str):
 @router.api_route("/dynamic.flash1.dev.socialpoint.es/{path:path}", methods=["GET", "POST"])
 async def se_dynamic_stub(path: str, request: Request):
     """Dynamic URL stub — route known PHP endpoints to real handlers, stub the rest."""
-    # Extract query params
-    params = dict(request.query_params)
-    userid = params.get("USERID", "")
+    try:
+        # Extract query params
+        params = dict(request.query_params)
+        userid = params.get("USERID", "")
 
-    if path.endswith("get_game_config.php"):
-        return get_game_config()
-    elif path.endswith("get_player_info.php") and userid:
-        return get_player_info(userid)
-    elif path.endswith("get_neighbor_info.php") and userid:
-        map_id = int(params.get("map", 0))
-        return get_neighbor_info(userid, map_id)
-    elif path.endswith("command.php") and userid:
-        body = await request.body()
-        import json as _json
-        data = _json.loads(body) if body else {}
-        await command(userid, data)
-        return {"result": "ok"}
-    elif path.endswith("get_quest_map.php"):
-        questid = int(params.get("questid", 0))
-        result = await get_quest_map(questid)
-        return result if result else {"result": "ok"}
+        if path.endswith("get_game_config.php"):
+            return get_game_config()
+        elif path.endswith("get_player_info.php") and userid:
+            return get_player_info(userid)
+        elif path.endswith("get_neighbor_info.php") and userid:
+            map_id = int(params.get("map", 0))
+            return get_neighbor_info(userid, map_id)
+        elif path.endswith("command.php") and userid:
+            body = await request.body()
+            import json as _json
+            data = _json.loads(body) if body else {}
+            await command(userid, data)
+            return {"result": "ok"}
+        elif path.endswith("get_quest_map.php"):
+            questid = int(params.get("questid", 0))
+            result = await get_quest_map(questid)
+            return result if result else {"result": "ok"}
+    except Exception as e:
+        print(f" [!] Error in dynamic stub for {path}: {e}")
 
     # Default stub for tracking and other non-critical calls
     return {"result": "ok"}

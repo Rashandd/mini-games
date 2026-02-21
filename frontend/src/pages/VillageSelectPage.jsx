@@ -21,13 +21,15 @@ export default function VillageSelectPage() {
 
   return (
     <div className="page-content">
-      <h1>⚔️ Social Empires</h1>
+      <h1><i className="fa-solid fa-shield-halved"></i> Social Empires</h1>
       <p className="subtitle">Select a village to play or create a new one.</p>
 
       <div className="village-grid">
         {villages.map((v) => (
           <div key={v.userid} className="glass-card village-card" onClick={() => navigate(`/social-empires/play/${v.userid}`)}>
-            <div className="village-icon">🏰</div>
+            <div className="village-icon">
+              <i className="fa-solid fa-chess-rook"></i>
+            </div>
             <h3>{v.name}</h3>
             <div className="village-meta">
               <span>Level {v.level}</span>
@@ -38,7 +40,9 @@ export default function VillageSelectPage() {
         ))}
 
         <div className="glass-card village-card new-village" onClick={createVillage}>
-          <div className="village-icon">➕</div>
+          <div className="village-icon">
+            <i className="fa-solid fa-plus"></i>
+          </div>
           <h3>New Empire</h3>
           <p className="muted">Start a new adventure</p>
         </div>

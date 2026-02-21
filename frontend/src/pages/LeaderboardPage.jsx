@@ -2,6 +2,14 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import api from '../api'
 
+// Rank medal icons for top 3
+function RankCell({ rank }) {
+  if (rank === 1) return <i className="fa-solid fa-medal" style={{ color: '#FFD700' }} title="Gold"></i>
+  if (rank === 2) return <i className="fa-solid fa-medal" style={{ color: '#C0C0C0' }} title="Silver"></i>
+  if (rank === 3) return <i className="fa-solid fa-medal" style={{ color: '#CD7F32' }} title="Bronze"></i>
+  return rank
+}
+
 export default function LeaderboardPage() {
   const { slug } = useParams()
   const [entries, setEntries] = useState([])
@@ -19,13 +27,15 @@ export default function LeaderboardPage() {
 
   return (
     <div className="page-content">
-      <h1>🏆 Leaderboard</h1>
+      <h1><i className="fa-solid fa-trophy"></i> Leaderboard</h1>
 
       <div className="tab-bar">
-        <button className={`tab-btn ${tab === 'global' ? 'active' : ''}`} onClick={() => setTab('global')}>🌍 Global</button>
+        <button className={`tab-btn ${tab === 'global' ? 'active' : ''}`} onClick={() => setTab('global')}>
+          <i className="fa-solid fa-globe"></i> Global
+        </button>
         {games.filter(g => g.slug !== 'social-empires').map((g) => (
           <button key={g.id} className={`tab-btn ${tab === g.slug ? 'active' : ''}`} onClick={() => setTab(g.slug)}>
-            {g.icon} {g.name}
+            {g.name}
           </button>
         ))}
       </div>
@@ -48,7 +58,7 @@ export default function LeaderboardPage() {
               <tr><td colSpan="7" className="center muted">No entries yet</td></tr>
             ) : entries.map((e) => (
               <tr key={e.user_id}>
-                <td className="rank">{e.rank <= 3 ? ['🥇', '🥈', '🥉'][e.rank - 1] : e.rank}</td>
+                <td className="rank"><RankCell rank={e.rank} /></td>
                 <td>{e.username}</td>
                 <td><strong>{tab === 'global' ? e.avg_rating || e.total_score : e.rating}</strong></td>
                 <td className="win">{tab === 'global' ? e.total_wins : e.wins}</td>

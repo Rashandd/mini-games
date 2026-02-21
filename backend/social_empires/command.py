@@ -24,23 +24,32 @@ def get_strategy_type(id):
 
 
 async def command(USERID, data):
-    timestamp = data["ts"]
-    first_number = data["first_number"]
-    accessToken = data["accessToken"]
-    tries = data["tries"]
-    publishActions = data["publishActions"]
-    commands = data["commands"]
+    try:
+        commands = data.get("commands", [])
+    except (AttributeError, TypeError):
+        print(f" [!] command() received invalid data for {USERID}: {type(data)}")
+        return
+
+    if not commands:
+        print(f" [!] command() no commands for {USERID}")
+        return
 
     for i, comm in enumerate(commands):
-        cmd = comm["cmd"]
-        args = comm["args"]
-        do_command(USERID, cmd, args)
+        try:
+            cmd = comm["cmd"]
+            args = comm["args"]
+            do_command(USERID, cmd, args)
+        except Exception as e:
+            print(f" [!] Error processing command {comm}: {e}")
     await save_session(USERID)
 
 
 def do_command(USERID, cmd, args):
     """500+ lines of pure dict mutations — kept sync, no I/O."""
     save = session(USERID)
+    if save is None:
+        print(f" [!] No session found for USERID={USERID}, skipping command {cmd}")
+        return
     print(" [+] COMMAND: ", cmd, "(", args, ") -> ", sep="", end="")
 
     if cmd == Constant.CMD_GAME_STATUS:

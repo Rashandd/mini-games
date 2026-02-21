@@ -4,9 +4,14 @@ export default function WaveDrifterPage() {
   const [loading, setLoading] = useState(true)
   const [volume, setVolume] = useState(50)
 
+  const getVolumeIcon = () => {
+    if (volume === 0) return 'fa-volume-xmark'
+    if (volume < 40) return 'fa-volume-low'
+    return 'fa-volume-high'
+  }
+
   return (
     <div className="se-play-page">
-      {/* Loading indicator */}
       {loading && (
         <div className="game-loading">
           <div className="spinner center-spinner"></div>
@@ -14,7 +19,6 @@ export default function WaveDrifterPage() {
         </div>
       )}
 
-      {/* Game iframe — self-hosted Godot HTML5 export */}
       <iframe
         src="/wave-drifter-assets/index.html"
         title="Wave Drifter"
@@ -28,7 +32,7 @@ export default function WaveDrifterPage() {
       <div className="game-controls-bar">
         <div className="volume-control">
           <span className="volume-icon" onClick={() => setVolume(volume > 0 ? 0 : 50)}>
-            {volume === 0 ? '🔇' : volume < 40 ? '🔉' : '🔊'}
+            <i className={`fa-solid ${getVolumeIcon()}`}></i>
           </span>
           <input
             type="range"
@@ -49,13 +53,15 @@ export default function WaveDrifterPage() {
 
       {/* Game title bar — positioned below controls */}
       <div className="game-title-bar">
-        <span className="game-title-icon">🏴‍☠️</span>
+        <span className="game-title-icon">
+          <i className="fa-solid fa-skull-crossbones"></i>
+        </span>
         <span className="game-title-name">Wave Drifter</span>
       </div>
 
       {/* Tutorial */}
       <div className="game-tutorial">
-        <h3>📖 How to Play Wave Drifter</h3>
+        <h3><i className="fa-solid fa-book-open"></i> How to Play Wave Drifter</h3>
         <div className="tutorial-steps">
           <div className="tutorial-step">
             <span className="step-num">1</span>
@@ -88,7 +94,7 @@ export default function WaveDrifterPage() {
           <div className="tutorial-step">
             <span className="step-num">5</span>
             <div>
-              <strong>Survive & Score</strong>
+              <strong>Survive &amp; Score</strong>
               <p>The longer you survive and the more enemies you destroy, the higher your score. Try to beat your personal best!</p>
             </div>
           </div>

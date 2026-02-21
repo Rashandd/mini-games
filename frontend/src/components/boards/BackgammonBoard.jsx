@@ -7,7 +7,10 @@ export default function BackgammonBoard({ state, yourPlayer, onMove, gameOver })
   return (
     <div className="board-container backgammon-board-container">
       <div className="turn-indicator">
-        {gameOver ? '' : currentPlayer === yourPlayer ? '🟢 Your Turn' : '🔴 Opponent\'s Turn'}
+        {gameOver ? '' : currentPlayer === yourPlayer
+          ? <><i className="fa-solid fa-circle" style={{ color: 'var(--accent-green)' }}></i> Your Turn</>
+          : <><i className="fa-solid fa-circle" style={{ color: '#ef5350' }}></i> Opponent's Turn</>
+        }
       </div>
       <div className="glass-card">
         <div className="backgammon-info">
