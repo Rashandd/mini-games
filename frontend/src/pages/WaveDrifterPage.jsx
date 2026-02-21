@@ -6,15 +6,10 @@ export default function WaveDrifterPage() {
 
   return (
     <div className="se-play-page">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-        <span style={{ fontSize: '1.5rem' }}>🏴‍☠️</span>
-        <span style={{ fontWeight: 700 }}>Wave Drifter</span>
-      </div>
-
       {/* Loading indicator */}
       {loading && (
-        <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-muted)' }}>
-          <div className="spinner center-spinner" style={{ marginBottom: 12 }}></div>
+        <div className="game-loading">
+          <div className="spinner center-spinner"></div>
           <p>Loading Wave Drifter...</p>
         </div>
       )}
@@ -24,16 +19,8 @@ export default function WaveDrifterPage() {
         src="/wave-drifter-assets/index.html"
         title="Wave Drifter"
         onLoad={() => setLoading(false)}
-        style={{
-          width: '100%',
-          maxWidth: 960,
-          height: 640,
-          border: 'none',
-          borderRadius: 8,
-          display: loading ? 'none' : 'block',
-          margin: '0 auto',
-          background: '#1a1a2e',
-        }}
+        className="wd-iframe"
+        style={{ display: loading ? 'none' : 'block' }}
         allowFullScreen
       />
 
@@ -53,11 +40,17 @@ export default function WaveDrifterPage() {
           />
           <span className="volume-value">{volume}%</span>
         </div>
-        <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+        <div className="game-credits">
           Built with <a href="https://godotengine.org/" target="_blank" rel="noreferrer">Godot Engine</a>
           {' · '}
           <a href="https://github.com/Yolo-Arts/Wave-Drifter" target="_blank" rel="noreferrer">Source on GitHub</a>
         </div>
+      </div>
+
+      {/* Game title bar — positioned below controls */}
+      <div className="game-title-bar">
+        <span className="game-title-icon">🏴‍☠️</span>
+        <span className="game-title-name">Wave Drifter</span>
       </div>
 
       {/* Tutorial */}
@@ -104,4 +97,3 @@ export default function WaveDrifterPage() {
     </div>
   )
 }
-

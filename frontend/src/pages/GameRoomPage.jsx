@@ -81,86 +81,67 @@ export default function GameRoomPage() {
 
   // In-game view
   if (game.roomCode && game.status) {
+    const statusClass = game.status === 'playing' ? 'status-pill--playing' : game.status === 'waiting' ? 'status-pill--waiting' : 'status-pill--finished'
+    const statusLabel = game.status === 'playing' ? '🟢 Playing' : game.status === 'waiting' ? '⏳ Waiting' : '🏁 Finished'
+
     return (
-      <div className="page-content game-active" style={{ maxWidth: 700, margin: '0 auto' }}>
+      <div className="page-content game-active">
         {/* Game header bar */}
-        <div className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <h2 style={{ margin: 0, fontSize: '1.1rem' }}>{game.gameName || gameName}</h2>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', background: 'var(--card-bg)', padding: '2px 8px', borderRadius: 8, fontFamily: 'monospace' }}>{game.roomCode}</span>
+        <div className="glass-card game-header-bar">
+          <div className="game-header-left">
+            <h2 className="game-header-title">{game.gameName || gameName}</h2>
+            <span className="room-code-badge">{game.roomCode}</span>
           </div>
-          <span style={{
-            padding: '3px 10px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600,
-            background: game.status === 'playing' ? 'var(--accent-green)' : game.status === 'waiting' ? 'var(--accent)' : '#666',
-            color: '#000',
-          }}>
-            {game.status === 'playing' ? '🟢 Playing' : game.status === 'waiting' ? '⏳ Waiting' : '🏁 Finished'}
-          </span>
+          <span className={`status-pill ${statusClass}`}>{statusLabel}</span>
         </div>
 
         {/* Player cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <div className="glass-card" style={{
-            padding: '10px 16px', textAlign: 'center',
-            border: game.status === 'playing' && currentTurn === 1 ? '2px solid var(--accent-green)' : '2px solid transparent',
-            opacity: game.status === 'playing' && currentTurn === 2 ? 0.6 : 1,
-            transition: 'all 0.3s ease',
-          }}>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: 2 }}>
+        <div className="players-grid">
+          <div className={`glass-card player-card ${game.status === 'playing' && currentTurn === 1 ? 'player-card--active' : ''} ${game.status === 'playing' && currentTurn === 2 ? 'player-card--inactive' : ''}`}>
+            <div className="player-label">
               {game.yourPlayer === 1 ? '👤 YOU' : '👤 OPPONENT'}
             </div>
-            <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>
-              {game.player1 || '?'} {game.gameSlug === 'tic-tac-toe' && <span style={{ color: 'var(--accent)' }}>✕</span>}
+            <div className="player-name">
+              {game.player1 || '?'} {game.gameSlug === 'tic-tac-toe' && <span className="mark-x">✕</span>}
             </div>
             {game.status === 'playing' && currentTurn === 1 && (
-              <div style={{ fontSize: '0.65rem', color: 'var(--accent-green)', marginTop: 2, fontWeight: 600 }}>▶ TURN</div>
+              <div className="turn-badge">▶ TURN</div>
             )}
           </div>
 
-          <span style={{ fontWeight: 800, fontSize: '0.85rem', color: 'var(--text-muted)' }}>VS</span>
+          <span className="vs-text">VS</span>
 
-          <div className="glass-card" style={{
-            padding: '10px 16px', textAlign: 'center',
-            border: game.status === 'playing' && currentTurn === 2 ? '2px solid var(--accent-green)' : '2px solid transparent',
-            opacity: game.status === 'playing' && currentTurn === 1 ? 0.6 : 1,
-            transition: 'all 0.3s ease',
-          }}>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: 2 }}>
+          <div className={`glass-card player-card ${game.status === 'playing' && currentTurn === 2 ? 'player-card--active' : ''} ${game.status === 'playing' && currentTurn === 1 ? 'player-card--inactive' : ''}`}>
+            <div className="player-label">
               {game.yourPlayer === 2 ? '👤 YOU' : '👤 OPPONENT'}
             </div>
-            <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>
-              {game.player2 || '...'} {game.gameSlug === 'tic-tac-toe' && <span style={{ color: '#4fc3f7' }}>○</span>}
+            <div className="player-name">
+              {game.player2 || '...'} {game.gameSlug === 'tic-tac-toe' && <span className="mark-o">○</span>}
             </div>
             {game.status === 'playing' && currentTurn === 2 && (
-              <div style={{ fontSize: '0.65rem', color: 'var(--accent-green)', marginTop: 2, fontWeight: 600 }}>▶ TURN</div>
+              <div className="turn-badge">▶ TURN</div>
             )}
           </div>
         </div>
 
         {/* Turn banner */}
         {game.status === 'playing' && !game.gameOver && (
-          <div style={{
-            textAlign: 'center', padding: '8px 16px', borderRadius: 10, marginBottom: 16, fontWeight: 600, fontSize: '0.85rem',
-            background: isYourTurn ? 'rgba(76, 175, 80, 0.15)' : 'rgba(255, 167, 38, 0.15)',
-            color: isYourTurn ? 'var(--accent-green)' : '#ffa726',
-            border: `1px solid ${isYourTurn ? 'rgba(76, 175, 80, 0.3)' : 'rgba(255, 167, 38, 0.3)'}`,
-          }}>
+          <div className={`turn-banner ${isYourTurn ? 'turn-banner--yours' : 'turn-banner--theirs'}`}>
             {isYourTurn ? '🟢 Your turn — make a move!' : "🟡 Opponent's turn — waiting..."}
           </div>
         )}
 
         {/* Waiting screen */}
         {game.status === 'waiting' && (
-          <div className="glass-card" style={{ textAlign: 'center', padding: '32px 24px' }}>
-            <div className="spinner" style={{ marginBottom: 16 }}></div>
-            <p style={{ fontWeight: 600, marginBottom: 4 }}>Waiting for opponent...</p>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 16 }}>
-              Share code: <strong style={{ fontFamily: 'monospace', letterSpacing: 1 }}>{game.roomCode}</strong>
+          <div className="glass-card waiting-card">
+            <div className="spinner"></div>
+            <p className="waiting-title">Waiting for opponent...</p>
+            <p className="waiting-subtitle">
+              Share code: <strong className="share-code">{game.roomCode}</strong>
             </p>
             <button
-              className="btn btn-sm"
+              className="btn btn-sm cancel-room-btn"
               onClick={() => game.deleteGame(game.roomCode)}
-              style={{ background: 'rgba(244,67,54,0.15)', color: '#ef5350', border: '1px solid rgba(244,67,54,0.3)', fontWeight: 600 }}
             >
               ✕ Cancel Room
             </button>
@@ -169,16 +150,16 @@ export default function GameRoomPage() {
 
         {/* Board */}
         {game.status === 'playing' && (
-          <div style={{ marginBottom: 16 }}>
+          <div className="board-wrapper">
             {renderBoard()}
           </div>
         )}
 
         {/* Game Over */}
         {game.gameOver && (
-          <div className="glass-card" style={{ textAlign: 'center', padding: '24px' }}>
-            <h2 style={{ margin: '0 0 8px 0', fontSize: '1.3rem' }}>🏆 Game Over!</h2>
-            <p style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 16 }}>
+          <div className="glass-card gameover-card">
+            <h2 className="gameover-title">🏆 Game Over!</h2>
+            <p className="gameover-result">
               {game.resigned
                 ? `${game.resigned} resigned. ${game.winnerName} wins!`
                 : game.winnerName === 'Draw'
@@ -192,17 +173,8 @@ export default function GameRoomPage() {
 
         {/* Resign button */}
         {game.status === 'playing' && !game.gameOver && (
-          <div style={{ textAlign: 'center', marginTop: 8 }}>
-            <button
-              onClick={game.resignGame}
-              style={{
-                background: 'transparent', border: '1px solid rgba(244,67,54,0.4)', color: '#ef5350',
-                padding: '6px 18px', borderRadius: 8, fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
-                transition: 'all 0.2s ease',
-              }}
-              onMouseOver={(e) => { e.target.style.background = 'rgba(244,67,54,0.1)' }}
-              onMouseOut={(e) => { e.target.style.background = 'transparent' }}
-            >
+          <div className="resign-wrapper">
+            <button className="resign-btn" onClick={game.resignGame}>
               🏳️ Resign Game
             </button>
           </div>
@@ -216,11 +188,11 @@ export default function GameRoomPage() {
     <div className="page-content">
       <div className="lobby-header">
         <h2>{gameName} Lobby</h2>
-        <div className="lobby-stats" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <span className="stat-pill" style={{ background: 'var(--accent-green)', color: '#000', padding: '4px 12px', borderRadius: 20, fontSize: '0.8rem', fontWeight: 600 }}>
+        <div className="lobby-stats">
+          <span className="stat-pill stat-pill--playing">
             🟢 {stats.playing} Playing
           </span>
-          <span className="stat-pill" style={{ background: 'var(--accent)', color: '#000', padding: '4px 12px', borderRadius: 20, fontSize: '0.8rem', fontWeight: 600 }}>
+          <span className="stat-pill stat-pill--waiting">
             ⏳ {stats.waiting} Waiting
           </span>
           <button className="btn btn-accent btn-sm" onClick={() => game.findMatch(slug)}>⚡ Quick Match</button>

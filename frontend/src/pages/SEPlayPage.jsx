@@ -84,7 +84,7 @@ export default function SEPlayPage() {
           'dailyBonus=0&brk=0',
           `friendsInfo=${friendsInfo}&brk=0`,
           `serverTime=${serverTime}&brk=0`,
-          'forceSyncError=1&brk=0',
+          'forceSyncError=0&brk=0',
           'forceAttackReload=0&brk=0',
           'forceQuestReload=0&brk=0',
         ].join('&'),
@@ -112,24 +112,16 @@ export default function SEPlayPage() {
 
   return (
     <div className="se-play-page">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-        <span style={{ fontSize: '1.5rem' }}>⚔️</span>
-        <span style={{ fontWeight: 700 }}>Social Empires</span>
-      </div>
-
       {/* Status message — outside the Ruffle container so React doesn't conflict */}
       {status && (
-        <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-muted)' }}>
-          <div className="spinner center-spinner" style={{ marginBottom: 12 }}></div>
+        <div className="game-loading">
+          <div className="spinner center-spinner"></div>
           <p>{status}</p>
         </div>
       )}
 
       {/* Ruffle mounts here — React never touches children of this div */}
-      <div
-        ref={ruffleRef}
-        style={{ width: 760, height: 625, margin: '0 auto', background: '#669C2C', borderRadius: 8 }}
-      />
+      <div ref={ruffleRef} className="se-ruffle-container" />
 
       {/* Volume control */}
       <div className="game-controls-bar">
@@ -147,9 +139,15 @@ export default function SEPlayPage() {
           />
           <span className="volume-value">{volume}%</span>
         </div>
-        <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+        <div className="game-credits">
           Powered by <a href="https://ruffle.rs/" target="_blank" rel="noreferrer">Ruffle</a> Flash Emulator
         </div>
+      </div>
+
+      {/* Game title bar — positioned below controls */}
+      <div className="game-title-bar">
+        <span className="game-title-icon">⚔️</span>
+        <span className="game-title-name">Social Empires</span>
       </div>
 
       {/* Tutorial */}
@@ -196,4 +194,3 @@ export default function SEPlayPage() {
     </div>
   )
 }
-
