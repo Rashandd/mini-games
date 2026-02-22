@@ -14,3 +14,5 @@ Lib/
 Scripts/
 pyvenv.cfg
 node_modules/
+dist/
+.env

@@ -443,7 +443,28 @@ a:hover { color: var(--accent-purple); }
 
 .lobby-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-lg); }
 .create-buttons { display: flex; gap: var(--space-sm); margin-bottom: var(--space-md); }
+.private-game-form { margin-top: var(--space-sm); }
 .private-form { display: flex; gap: var(--space-sm); margin-top: var(--space-sm); }
+
+.password-input-wrapper {
+  position: relative;
+  flex: 1;
+}
+.password-input-wrapper .form-input { padding-right: 2.5rem; }
+.password-eye-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0;
+  line-height: 1;
+}
+.password-eye-btn:hover { color: var(--text-primary); }
 .filter-bar { display: flex; gap: var(--space-sm); margin-bottom: var(--space-md); }
 .lobby-list { display: flex; flex-direction: column; gap: var(--space-sm); }
 

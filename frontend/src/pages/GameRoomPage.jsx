@@ -15,6 +15,7 @@ export default function GameRoomPage() {
   const [activeGames, setActiveGames] = useState([])
   const [showPrivateForm, setShowPrivateForm] = useState(false)
   const [privatePassword, setPrivatePassword] = useState('')
+  const [showPrivatePassword, setShowPrivatePassword] = useState(false)
   const [joinPassword, setJoinPassword] = useState('')
   const [joinRoomCode, setJoinRoomCode] = useState(null)
   const [search, setSearch] = useState('')
@@ -331,20 +332,42 @@ export default function GameRoomPage() {
           <button className="btn btn-primary btn-sm" onClick={createPublicGame}>
             <i className="fa-solid fa-globe"></i> Public Game
           </button>
-          <button className="btn btn-gold btn-sm" onClick={() => setShowPrivateForm(!showPrivateForm)}>
+          <button className="btn btn-gold btn-sm" onClick={() => setShowPrivateForm(true)}>
             <i className="fa-solid fa-lock"></i> Private Game
           </button>
         </div>
         {showPrivateForm && (
-          <div className="private-form">
-            <input
-              className="form-input"
-              type="password"
-              placeholder="Set password..."
-              value={privatePassword}
-              onChange={(e) => setPrivatePassword(e.target.value)}
-            />
-            <button className="btn btn-primary btn-sm" onClick={createPrivateGame}>Create</button>
+          <div className="private-game-form">
+            <p className="muted" style={{ fontSize: '0.8rem', marginBottom: '8px' }}>
+              <i className="fa-solid fa-info-circle"></i> Password is optional — leave blank for a private room without password.
+            </p>
+            <div className="private-form">
+              <div className="password-input-wrapper">
+                <input
+                  className="form-input"
+                  type={showPrivatePassword ? 'text' : 'password'}
+                  placeholder="Password (optional)..."
+                  value={privatePassword}
+                  onChange={(e) => setPrivatePassword(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && createPrivateGame()}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  className="password-eye-btn"
+                  onClick={() => setShowPrivatePassword(!showPrivatePassword)}
+                  tabIndex={-1}
+                >
+                  <i className={`fa-solid ${showPrivatePassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+                </button>
+              </div>
+              <button className="btn btn-primary btn-sm" onClick={createPrivateGame}>
+                <i className="fa-solid fa-check"></i> Create
+              </button>
+              <button className="btn btn-secondary btn-sm" onClick={() => { setShowPrivateForm(false); setPrivatePassword('') }}>
+                Cancel
+              </button>
+            </div>
           </div>
         )}
       </div>
