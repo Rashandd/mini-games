@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 from auth import get_current_user
 from database import get_db
 from models import Game, GameSession, User
-from schemas import GameOut, LobbyOut
+from schemas import GameOut, LobbyOut, ActiveGameOut
 
 router = APIRouter(prefix="/api", tags=["games"])
 
@@ -66,6 +66,43 @@ async def list_lobbies(
             room_code=gs.room_code,
             host=gs.player1.username if gs.player1 else "?",
             is_private=gs.is_private,
+            age=age,
+        ))
+    return out
+
+
+@router.get("/active-games/{slug}", response_model=list[ActiveGameOut])
+async def list_active_games(
+    slug: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Return currently-playing games that can be spectated."""
+    game = (await db.execute(select(Game).where(Game.slug == slug))).scalar_one_or_none()
+    if not game:
+        return []
+
+    result = await db.execute(
+        select(GameSession)
+        .options(selectinload(GameSession.player1), selectinload(GameSession.player2))
+        .where(GameSession.game_id == game.id, GameSession.status == "playing")
+        .order_by(GameSession.started_at.desc())
+    )
+    sessions = result.scalars().all()
+    now = datetime.utcnow()
+    out = []
+    for gs in sessions:
+        delta = (now - gs.started_at).total_seconds()
+        if delta < 60:
+            age = f"{int(delta)}s ago"
+        elif delta < 3600:
+            age = f"{int(delta / 60)}m ago"
+        else:
+            age = f"{int(delta / 3600)}h ago"
+        out.append(ActiveGameOut(
+            room_code=gs.room_code,
+            player1=gs.player1.username if gs.player1 else "?",
+            player2=gs.player2.username if gs.player2 else "?",
             age=age,
         ))
     return out

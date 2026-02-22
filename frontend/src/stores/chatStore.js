@@ -5,14 +5,17 @@ const useChatStore = create((set, get) => ({
   rooms: [],
   activeRoomId: null,
   messages: [],
+  unreadCount: 0,
 
   setActiveRoom: (roomId) => {
-    set({ activeRoomId: roomId, messages: [] })
+    set({ activeRoomId: roomId, messages: [], unreadCount: 0 })
     const s = getSocket()
     if (!s) return
     s.emit('join_chat', { room_id: roomId })
     s.emit('load_messages', { room_id: roomId })
   },
+
+  clearUnread: () => set({ unreadCount: 0 }),
 
   fetchRooms: () => {
     const s = getSocket()
@@ -73,17 +76,26 @@ const useChatStore = create((set, get) => ({
       }
     })
     s.on('new_message', (msg) => {
-      if (msg.room_id === get().activeRoomId) {
+      const { activeRoomId, unreadCount } = get()
+      if (msg.room_id === activeRoomId) {
         set({ messages: [...get().messages, msg] })
+      } else {
+        // Message for a room we're not viewing — increment unread
+        set({ unreadCount: unreadCount + 1 })
       }
     })
     s.on('dm_created', (data) => {
       get().fetchRooms()
-      set({ activeRoomId: data.room_id })
+      // Use setActiveRoom so we emit join_chat + load_messages
+      setTimeout(() => get().setActiveRoom(data.room_id), 300)
     })
     s.on('group_created', (data) => {
       get().fetchRooms()
-      set({ activeRoomId: data.room_id })
+      setTimeout(() => get().setActiveRoom(data.room_id), 300)
+    })
+    // When another user creates a DM with us, refresh our room list
+    s.on('room_list_updated', () => {
+      get().fetchRooms()
     })
   },
 
@@ -95,6 +107,7 @@ const useChatStore = create((set, get) => ({
     s.off('new_message')
     s.off('dm_created')
     s.off('group_created')
+    s.off('room_list_updated')
   },
 }))
 

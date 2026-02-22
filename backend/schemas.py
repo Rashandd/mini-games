@@ -48,6 +48,12 @@ class LobbyOut(BaseModel):
     is_private: bool
     age: str
 
+class ActiveGameOut(BaseModel):
+    room_code: str
+    player1: str
+    player2: str
+    age: str
+
 
 # ─── Leaderboard ────────────────────────────────────────────────────────────
 

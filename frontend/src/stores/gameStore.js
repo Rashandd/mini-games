@@ -14,11 +14,14 @@ const useGameStore = create((set, get) => ({
   winner: null,
   winnerName: null,
   resigned: null,
+  isPrivate: false,
+  isSpectator: false,
 
   reset: () => set({
     roomCode: null, gameSlug: null, gameName: null, status: null,
     state: null, player1: null, player2: null, yourPlayer: null,
     gameOver: false, winner: null, winnerName: null, resigned: null,
+    isPrivate: false, isSpectator: false,
   }),
 
   createGame: (gameSlug, isPrivate = false, password = '') => {
@@ -33,6 +36,12 @@ const useGameStore = create((set, get) => ({
     const s = getSocket()
     if (!s) return
     s.emit('join_game', { room_code: roomCode, password })
+  },
+
+  spectateGame: (roomCode) => {
+    const s = getSocket()
+    if (!s) return
+    s.emit('spectate_game', { room_code: roomCode })
   },
 
   makeMove: (move) => {
@@ -75,6 +84,8 @@ const useGameStore = create((set, get) => ({
         status: 'waiting',
         state: null,
         gameOver: false,
+        isPrivate: !!data.is_private,
+        isSpectator: false,
       })
     })
 
@@ -90,17 +101,38 @@ const useGameStore = create((set, get) => ({
         player2: data.player2,
         yourPlayer: data.your_player,
         gameOver: false,
+        isSpectator: false,
       })
     })
 
     // Player 1 receives this when Player 2 joins
     // Only update what changed — preserve yourPlayer=1
     s.on('game_started', (data) => {
-      set({
+      const update = {
         status: data.status,
         state: data.state,
         player2: data.player2,
         gameOver: false,
+      }
+      if (data.game_slug) update.gameSlug = data.game_slug
+      if (data.game_name) update.gameName = data.game_name
+      if (data.player1) update.player1 = data.player1
+      set(update)
+    })
+
+    // Spectator receives this when joining a game
+    s.on('spectate_joined', (data) => {
+      set({
+        roomCode: data.room_code,
+        gameSlug: data.game_slug,
+        gameName: data.game_name,
+        status: data.status,
+        state: data.state,
+        player1: data.player1,
+        player2: data.player2,
+        yourPlayer: null,
+        gameOver: false,
+        isSpectator: true,
       })
     })
 
@@ -138,6 +170,7 @@ const useGameStore = create((set, get) => ({
     s.off('game_update')
     s.off('move_error')
     s.off('room_deleted')
+    s.off('spectate_joined')
     s.off('error')
   },
 }))

@@ -36,6 +36,7 @@ export default function App() {
                 <Routes>
                   <Route path="/" element={<HomePage />} />
                   <Route path="/game/:slug" element={<GameRoomPage />} />
+                  <Route path="/game/:slug/join/:roomCode" element={<GameRoomPage />} />
                   <Route path="/leaderboard" element={<LeaderboardPage />} />
                   <Route path="/leaderboard/:slug" element={<LeaderboardPage />} />
                   <Route path="/social-empires" element={<VillageSelectPage />} />

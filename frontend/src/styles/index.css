@@ -743,6 +743,64 @@ a:hover { color: var(--accent-purple); }
 .stat-pill--playing { background: var(--accent-green); }
 .stat-pill--waiting { background: var(--accent-gold); }
 
+/* Spectator styles */
+.status-pill--spectating { background: var(--accent-purple); }
+
+.spectator-banner {
+  text-align: center;
+  padding: 8px 16px;
+  border-radius: 10px;
+  margin-bottom: var(--space-md);
+  font-weight: 600;
+  font-size: 0.85rem;
+  background: rgba(139 92 246 / 0.15);
+  color: var(--accent-purple);
+  border: 1px solid rgba(139 92 246 / 0.3);
+}
+
+/* Share link for private games */
+.share-link-section {
+  margin: var(--space-md) 0;
+}
+
+.share-link-row {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.share-link-input {
+  flex: 1;
+  font-family: monospace;
+  font-size: var(--font-xs) !important;
+  letter-spacing: 0.02em;
+}
+
+/* Active games section */
+.active-game-item {
+  cursor: default;
+}
+
+.active-game-players {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.active-game-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.active-game-vs {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
 /* ─── Board Components ───────────────────────────────────────────────────── */
 
 .board-container {
@@ -880,6 +938,26 @@ a:hover { color: var(--accent-purple); }
   transition: transform var(--transition-fast);
 }
 .chat-toggle-btn:hover { transform: scale(1.1); }
+
+.chat-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: var(--accent-red);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px var(--accent-red-glow);
+  animation: badge-pop 0.3s ease;
+}
+@keyframes badge-pop { 0% { transform: scale(0); } 100% { transform: scale(1); } }
 
 .chat-sidebar {
   position: fixed;

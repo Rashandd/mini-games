@@ -180,12 +180,15 @@ async def join_game(sid, data):
             "your_player": 2,
         }, to=sid)
 
-        # Emit to player 1 (the host) — only the fields that changed
+        # Emit to player 1 (the host) — include all fields for robustness
         # This prevents overwriting yourPlayer which was set in game_created
         await sio.emit("game_started", {
             "room_code": room_code,
+            "game_slug": game.slug,
+            "game_name": game.name,
             "status": "playing",
             "state": gs.state_json,
+            "player1": p1,
             "player2": p2,
         }, room=room_code, skip_sid=sid)
 
@@ -303,6 +306,50 @@ async def resign(sid, data):
         }, room=room_code)
 
 
+# ─── Spectator Event ────────────────────────────────────────────────────────
+
+@sio.event
+async def spectate_game(sid, data):
+    """Join a game room as a spectator (read-only)."""
+    user = _get_user_from_sid(sid)
+    if not user:
+        return await sio.emit("error", {"message": "Not authenticated"}, to=sid)
+
+    async with async_session() as db:
+        room_code = data.get("room_code")
+        result = await db.execute(
+            select(GameSession)
+            .options(
+                selectinload(GameSession.player1),
+                selectinload(GameSession.player2),
+            )
+            .where(GameSession.room_code == room_code)
+        )
+        gs = result.scalar_one_or_none()
+        if not gs:
+            return await sio.emit("error", {"message": "Game not found"}, to=sid)
+        if gs.status != "playing":
+            return await sio.emit("error", {"message": "Game is not in progress"}, to=sid)
+
+        game = (await db.execute(select(Game).where(Game.id == gs.game_id))).scalar_one()
+        p1 = gs.player1.username if gs.player1 else "?"
+        p2 = gs.player2.username if gs.player2 else "?"
+
+    # Join the socket room so spectator receives game_update broadcasts
+    sio.enter_room(sid, room_code)
+
+    await sio.emit("spectate_joined", {
+        "room_code": room_code,
+        "game_slug": game.slug,
+        "game_name": game.name,
+        "status": "playing",
+        "state": gs.state_json,
+        "player1": p1,
+        "player2": p2,
+        "is_spectator": True,
+    }, to=sid)
+
+
 # ─── Chat Events ────────────────────────────────────────────────────────────
 
 @sio.event
@@ -385,6 +432,11 @@ async def create_dm(sid, data):
         db.add(ChatRoomMember(room_id=room.id, user_id=target_id, role="member"))
         await db.commit()
         await sio.emit("dm_created", {"room_id": room.id}, to=sid)
+
+    # Notify target user so their room list refreshes
+    for other_sid, info in online_users.items():
+        if info["user_id"] == target_id:
+            await sio.emit("room_list_updated", {}, to=other_sid)
 
 
 @sio.event
@@ -472,14 +524,28 @@ async def send_message(sid, data):
         db.add(msg)
         await db.commit()
         await db.refresh(msg)
-        await sio.emit("new_message", {
+        msg_data = {
             "id": msg.id,
             "room_id": room_id,
             "user_id": user["user_id"],
             "username": user["username"],
             "content": content,
             "created_at": msg.created_at.isoformat() if msg.created_at else None,
-        }, room=f"chat_{room_id}")
+        }
+        await sio.emit("new_message", msg_data, room=f"chat_{room_id}")
+
+        # Also notify room members who aren't in the socket room
+        # (e.g. DM recipient who hasn't opened the chat yet)
+        members = (await db.execute(
+            select(ChatRoomMember.user_id).where(ChatRoomMember.room_id == room_id)
+        )).all()
+        member_ids = {m[0] for m in members}
+        for other_sid, info in online_users.items():
+            if info["user_id"] in member_ids and other_sid != sid:
+                # Check if they're already in the socket room
+                rooms_for_sid = sio.rooms(other_sid)
+                if f"chat_{room_id}" not in rooms_for_sid:
+                    await sio.emit("new_message", msg_data, to=other_sid)
 
 
 @sio.event
@@ -592,8 +658,11 @@ async def find_match(sid, data):
 
             await sio.emit("game_started", {
                 "room_code": waiting.room_code,
+                "game_slug": game_slug,
+                "game_name": game.name,
                 "status": "playing",
                 "state": gs.state_json,
+                "player1": p1,
                 "player2": p2,
             }, room=waiting.room_code, skip_sid=sid)
     else:

@@ -56,8 +56,11 @@ export default function ChatSidebar() {
 
   return (
     <>
-      <button className="chat-toggle-btn" onClick={() => setOpen(!open)}>
+      <button className="chat-toggle-btn" onClick={() => { setOpen(!open); if (!open) chat.clearUnread() }}>
         <i className="fa-solid fa-comment"></i>
+        {chat.unreadCount > 0 && (
+          <span className="chat-badge">{chat.unreadCount > 9 ? '9+' : chat.unreadCount}</span>
+        )}
       </button>
 
       <div className={`chat-sidebar ${open ? 'open' : ''}`}>

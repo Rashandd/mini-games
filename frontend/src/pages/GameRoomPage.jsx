@@ -8,23 +8,26 @@ import CheckersBoard from '../components/boards/CheckersBoard'
 import BackgammonBoard from '../components/boards/BackgammonBoard'
 
 export default function GameRoomPage() {
-  const { slug } = useParams()
+  const { slug, roomCode: urlRoomCode } = useParams()
   const user = useAuthStore((s) => s.user)
   const game = useGameStore()
   const [lobbies, setLobbies] = useState([])
+  const [activeGames, setActiveGames] = useState([])
   const [showPrivateForm, setShowPrivateForm] = useState(false)
   const [privatePassword, setPrivatePassword] = useState('')
   const [joinPassword, setJoinPassword] = useState('')
   const [joinRoomCode, setJoinRoomCode] = useState(null)
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState('newest')
-  const [chatMessages, setChatMessages] = useState([])
-  const [chatInput, setChatInput] = useState('')
   const [stats, setStats] = useState({ waiting: 0, playing: 0 })
+  const [linkCopied, setLinkCopied] = useState(false)
+  const [joinError, setJoinError] = useState('')
+  const [manualRoomCode, setManualRoomCode] = useState('')
 
   const loadLobbies = useCallback(() => {
     api.get(`/lobbies/${slug}`).then((r) => setLobbies(r.data)).catch(() => {})
     api.get(`/game-stats/${slug}`).then((r) => setStats(r.data)).catch(() => {})
+    api.get(`/active-games/${slug}`).then((r) => setActiveGames(r.data)).catch(() => {})
   }, [slug])
 
   useEffect(() => {
@@ -36,6 +39,36 @@ export default function GameRoomPage() {
       game.cleanupListeners()
     }
   }, [slug])
+
+  // Handle URL-based join (private game invite link)
+  useEffect(() => {
+    if (urlRoomCode && !game.roomCode) {
+      // Check if the game is private — try joining directly first
+      // If password is needed, the server will return an error and we show the modal
+      import('../socket').then(({ getSocket: gs }) => {
+        const socket = gs()
+        if (!socket) return
+
+        const handleError = (data) => {
+          if (data?.message === 'Wrong password') {
+            setJoinRoomCode(urlRoomCode)
+            setJoinError('')
+          } else if (data?.message) {
+            setJoinError(data.message)
+          }
+          socket.off('error', handleError)
+        }
+
+        socket.on('error', handleError)
+        // Try joining without password — if it's public, this succeeds
+        // If it's private, we get 'Wrong password' and show the modal
+        game.joinGame(urlRoomCode)
+
+        // Clean up listener after a timeout
+        setTimeout(() => socket.off('error', handleError), 5000)
+      })
+    }
+  }, [urlRoomCode])
 
   const createPublicGame = () => game.createGame(slug)
   const createPrivateGame = () => {
@@ -58,13 +91,55 @@ export default function GameRoomPage() {
     setJoinPassword('')
   }
 
+  const handleManualJoin = () => {
+    const code = manualRoomCode.trim()
+    if (!code) return
+    setJoinError('')
+    import('../socket').then(({ getSocket: gs }) => {
+      const socket = gs()
+      if (!socket) return
+
+      const handleError = (data) => {
+        if (data?.message === 'Wrong password') {
+          setJoinRoomCode(code)
+          setJoinError('')
+        } else if (data?.message) {
+          setJoinError(data.message)
+        }
+        socket.off('error', handleError)
+      }
+
+      socket.on('error', handleError)
+      game.joinGame(code)
+      setTimeout(() => socket.off('error', handleError), 5000)
+    })
+    setManualRoomCode('')
+  }
+
+  const spectate = (roomCode) => {
+    game.spectateGame(roomCode)
+  }
+
+  const copyShareLink = () => {
+    const url = `${window.location.origin}/game/${slug}/join/${game.roomCode}`
+    navigator.clipboard.writeText(url).then(() => {
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2000)
+    })
+  }
+
   const filtered = lobbies
     .filter((l) => l.host.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => sort === 'newest' ? 0 : -1)
 
   const renderBoard = () => {
     if (!game.state || !game.gameSlug) return null
-    const props = { state: game.state, yourPlayer: game.yourPlayer, onMove: game.makeMove, gameOver: game.gameOver }
+    const props = {
+      state: game.state,
+      yourPlayer: game.isSpectator ? null : game.yourPlayer,
+      onMove: game.isSpectator ? () => {} : game.makeMove,
+      gameOver: game.gameOver
+    }
     switch (game.gameSlug) {
       case 'tic-tac-toe': return <TicTacToeBoard {...props} />
       case 'checkers': return <CheckersBoard {...props} />
@@ -77,12 +152,12 @@ export default function GameRoomPage() {
 
   // Determine whose turn it is
   const currentTurn = game.state?.current_player
-  const isYourTurn = currentTurn === game.yourPlayer
+  const isYourTurn = !game.isSpectator && currentTurn === game.yourPlayer
 
-  // In-game view
+  // In-game view (playing, waiting, spectating, or finished)
   if (game.roomCode && game.status) {
-    const statusIcon = game.status === 'playing' ? 'fa-circle-play' : game.status === 'waiting' ? 'fa-hourglass-half' : 'fa-flag-checkered'
-    const statusLabel = game.status === 'playing' ? 'Playing' : game.status === 'waiting' ? 'Waiting' : 'Finished'
+    const statusIcon = game.isSpectator ? 'fa-eye' : game.status === 'playing' ? 'fa-circle-play' : game.status === 'waiting' ? 'fa-hourglass-half' : 'fa-flag-checkered'
+    const statusLabel = game.isSpectator ? 'Spectating' : game.status === 'playing' ? 'Playing' : game.status === 'waiting' ? 'Waiting' : 'Finished'
 
     return (
       <div className="page-content game-active">
@@ -92,16 +167,23 @@ export default function GameRoomPage() {
             <h2 className="game-header-title">{game.gameName || gameName}</h2>
             <span className="room-code-badge">{game.roomCode}</span>
           </div>
-          <span className={`status-pill ${game.status === 'playing' ? 'status-pill--playing' : game.status === 'waiting' ? 'status-pill--waiting' : 'status-pill--finished'}`}>
+          <span className={`status-pill ${game.isSpectator ? 'status-pill--spectating' : game.status === 'playing' ? 'status-pill--playing' : game.status === 'waiting' ? 'status-pill--waiting' : 'status-pill--finished'}`}>
             <i className={`fa-solid ${statusIcon}`}></i> {statusLabel}
           </span>
         </div>
+
+        {/* Spectator banner */}
+        {game.isSpectator && (
+          <div className="spectator-banner">
+            <i className="fa-solid fa-eye"></i> You are watching this game as a spectator
+          </div>
+        )}
 
         {/* Player cards */}
         <div className="players-grid">
           <div className={`glass-card player-card ${game.status === 'playing' && currentTurn === 1 ? 'player-card--active' : ''} ${game.status === 'playing' && currentTurn === 2 ? 'player-card--inactive' : ''}`}>
             <div className="player-label">
-              <i className="fa-solid fa-user"></i> {game.yourPlayer === 1 ? 'YOU' : 'OPPONENT'}
+              <i className="fa-solid fa-user"></i> {game.yourPlayer === 1 ? 'YOU' : game.isSpectator ? 'PLAYER 1' : 'OPPONENT'}
             </div>
             <div className="player-name">
               {game.player1 || '?'} {game.gameSlug === 'tic-tac-toe' && <span className="mark-x">✕</span>}
@@ -115,7 +197,7 @@ export default function GameRoomPage() {
 
           <div className={`glass-card player-card ${game.status === 'playing' && currentTurn === 2 ? 'player-card--active' : ''} ${game.status === 'playing' && currentTurn === 1 ? 'player-card--inactive' : ''}`}>
             <div className="player-label">
-              <i className="fa-solid fa-user"></i> {game.yourPlayer === 2 ? 'YOU' : 'OPPONENT'}
+              <i className="fa-solid fa-user"></i> {game.yourPlayer === 2 ? 'YOU' : game.isSpectator ? 'PLAYER 2' : 'OPPONENT'}
             </div>
             <div className="player-name">
               {game.player2 || '...'} {game.gameSlug === 'tic-tac-toe' && <span className="mark-o">○</span>}
@@ -127,7 +209,7 @@ export default function GameRoomPage() {
         </div>
 
         {/* Turn banner */}
-        {game.status === 'playing' && !game.gameOver && (
+        {game.status === 'playing' && !game.gameOver && !game.isSpectator && (
           <div className={`turn-banner ${isYourTurn ? 'turn-banner--yours' : 'turn-banner--theirs'}`}>
             {isYourTurn
               ? <><i className="fa-solid fa-circle" style={{ color: 'var(--accent-green)' }}></i> Your turn — make a move!</>
@@ -141,9 +223,30 @@ export default function GameRoomPage() {
           <div className="glass-card waiting-card">
             <div className="spinner"></div>
             <p className="waiting-title">Waiting for opponent...</p>
-            <p className="waiting-subtitle">
-              Share code: <strong className="share-code">{game.roomCode}</strong>
-            </p>
+            {game.isPrivate ? (
+              <div className="share-link-section">
+                <p className="waiting-subtitle">Share this link with your opponent:</p>
+                <div className="share-link-row">
+                  <input
+                    className="form-input share-link-input"
+                    readOnly
+                    value={`${window.location.origin}/game/${slug}/join/${game.roomCode}`}
+                    onClick={(e) => e.target.select()}
+                  />
+                  <button className="btn btn-primary btn-sm" onClick={copyShareLink}>
+                    <i className={`fa-solid ${linkCopied ? 'fa-check' : 'fa-copy'}`}></i>
+                    {linkCopied ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+                <p className="muted center" style={{ marginTop: '8px' }}>
+                  <i className="fa-solid fa-lock"></i> They will need the password to join
+                </p>
+              </div>
+            ) : (
+              <p className="waiting-subtitle">
+                Share code: <strong className="share-code">{game.roomCode}</strong>
+              </p>
+            )}
             <button
               className="btn btn-sm cancel-room-btn"
               onClick={() => game.deleteGame(game.roomCode)}
@@ -176,11 +279,20 @@ export default function GameRoomPage() {
           </div>
         )}
 
-        {/* Resign button */}
-        {game.status === 'playing' && !game.gameOver && (
+        {/* Resign button (not for spectators) */}
+        {game.status === 'playing' && !game.gameOver && !game.isSpectator && (
           <div className="resign-wrapper">
             <button className="resign-btn" onClick={game.resignGame}>
               <i className="fa-solid fa-flag"></i> Resign Game
+            </button>
+          </div>
+        )}
+
+        {/* Spectator: back to lobby button */}
+        {game.isSpectator && (
+          <div className="resign-wrapper">
+            <button className="btn btn-secondary btn-sm" onClick={() => game.reset()}>
+              <i className="fa-solid fa-arrow-left"></i> Back to Lobby
             </button>
           </div>
         )}
@@ -206,6 +318,13 @@ export default function GameRoomPage() {
         </div>
       </div>
 
+      {/* URL join error */}
+      {joinError && (
+        <div className="form-error" style={{ marginBottom: '16px' }}>
+          <i className="fa-solid fa-circle-exclamation"></i> {joinError}
+        </div>
+      )}
+
       <div className="glass-card">
         <h3>Create Game</h3>
         <div className="create-buttons">
@@ -228,6 +347,22 @@ export default function GameRoomPage() {
             <button className="btn btn-primary btn-sm" onClick={createPrivateGame}>Create</button>
           </div>
         )}
+      </div>
+
+      {/* Join by Room Code */}
+      <div className="glass-card">
+        <h3><i className="fa-solid fa-right-to-bracket"></i> Join by Room Code</h3>
+        <div className="private-form">
+          <input
+            className="form-input"
+            type="text"
+            placeholder="Enter room code..."
+            value={manualRoomCode}
+            onChange={(e) => setManualRoomCode(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleManualJoin()}
+          />
+          <button className="btn btn-primary btn-sm" onClick={handleManualJoin}>Join</button>
+        </div>
       </div>
 
       <div className="glass-card">
@@ -254,6 +389,28 @@ export default function GameRoomPage() {
         </div>
       </div>
 
+      {/* Active Games — Spectator Section */}
+      <div className="glass-card">
+        <div className="divider">active games — watch live</div>
+        <div className="lobby-list">
+          {activeGames.length === 0 ? (
+            <p className="muted center">No active games right now.</p>
+          ) : activeGames.map((g) => (
+            <div key={g.room_code} className="lobby-item active-game-item">
+              <div className="active-game-players">
+                <span className="active-game-name">{g.player1}</span>
+                <span className="active-game-vs">vs</span>
+                <span className="active-game-name">{g.player2}</span>
+              </div>
+              <span className="lobby-age">{g.age}</span>
+              <button className="btn btn-sm btn-secondary" onClick={() => spectate(g.room_code)}>
+                <i className="fa-solid fa-eye"></i> Watch
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Password modal */}
       {joinRoomCode && (
         <div className="modal-overlay" onClick={() => setJoinRoomCode(null)}>
@@ -266,6 +423,7 @@ export default function GameRoomPage() {
               placeholder="Password..."
               value={joinPassword}
               onChange={(e) => setJoinPassword(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && submitJoinPassword()}
             />
             <div className="modal-actions">
               <button className="btn btn-primary btn-sm" onClick={submitJoinPassword}>Join</button>
