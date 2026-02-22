@@ -180,9 +180,8 @@ async def join_game(sid, data):
             "your_player": 2,
         }, to=sid)
 
-        # Emit to player 1 (the host) — include all fields for robustness
-        # This prevents overwriting yourPlayer which was set in game_created
-        await sio.emit("game_started", {
+        # Notify player 1 — send DIRECTLY to their SID for reliability
+        game_started_data = {
             "room_code": room_code,
             "game_slug": game.slug,
             "game_name": game.name,
@@ -190,7 +189,17 @@ async def join_game(sid, data):
             "state": gs.state_json,
             "player1": p1,
             "player2": p2,
-        }, room=room_code, skip_sid=sid)
+        }
+        # Find player 1's SID and send directly
+        for p1_sid, info in online_users.items():
+            if info["user_id"] == gs.player1_id and p1_sid != sid:
+                await sio.emit("game_started", game_started_data, to=p1_sid)
+                print(f" [GAME] game_started sent directly to P1 sid={p1_sid}")
+                break
+        else:
+            # Fallback: broadcast to room (skip joiner)
+            await sio.emit("game_started", game_started_data, room=room_code, skip_sid=sid)
+            print(f" [GAME] game_started broadcast to room={room_code}")
 
 
 @sio.event
@@ -260,6 +269,12 @@ async def make_move(sid, data):
                 result_data["winner_name"] = "Draw"
 
         await db.commit()
+
+        # Emit directly to both players' SIDs for reliability
+        for u_sid, info in online_users.items():
+            if info["user_id"] in (gs.player1_id, gs.player2_id):
+                await sio.emit("game_update", result_data, to=u_sid)
+        # Also broadcast to room for spectators
         await sio.emit("game_update", result_data, room=room_code)
 
 
@@ -296,14 +311,20 @@ async def resign(sid, data):
         await db.commit()
 
         winner_user = (await db.execute(select(User).where(User.id == winner_id))).scalar_one_or_none()
-        await sio.emit("game_update", {
+        resign_data = {
             "room_code": room_code,
             "state": gs.state_json,
             "game_over": True,
             "winner": winner_num,
             "winner_name": winner_user.username if winner_user else "?",
             "resigned": user["username"],
-        }, room=room_code)
+        }
+        # Emit directly to both players' SIDs for reliability
+        for u_sid, info in online_users.items():
+            if info["user_id"] in (gs.player1_id, gs.player2_id):
+                await sio.emit("game_update", resign_data, to=u_sid)
+        # Also broadcast to room for spectators
+        await sio.emit("game_update", resign_data, room=room_code)
 
 
 # ─── Spectator Event ────────────────────────────────────────────────────────
@@ -377,6 +398,16 @@ async def list_rooms(sid):
         room_list = []
         for r in rooms:
             name = r.name or "Chat"
+            # Get the member record for this user (for unread count)
+            member_result = await db.execute(
+                select(ChatRoomMember).where(
+                    ChatRoomMember.room_id == r.id,
+                    ChatRoomMember.user_id == user["user_id"],
+                )
+            )
+            member = member_result.scalar_one_or_none()
+            unread = member.unread_count if member else 0
+
             if r.room_type == "dm":
                 result = await db.execute(
                     select(ChatRoomMember)
@@ -387,7 +418,7 @@ async def list_rooms(sid):
                 if other and other.user:
                     name = other.user.username
 
-            room_list.append({"id": r.id, "name": name, "type": r.room_type})
+            room_list.append({"id": r.id, "name": name, "type": r.room_type, "unread": unread})
 
         await sio.emit("room_list", {"rooms": room_list}, to=sid)
 
@@ -474,8 +505,12 @@ async def join_chat(sid, data):
                 ChatRoomMember.user_id == user["user_id"],
             )
         )).scalar_one_or_none()
-        if not existing:
-            db.add(ChatRoomMember(room_id=room_id, user_id=user["user_id"]))
+        if existing:
+            # Reset unread count when user opens the room
+            existing.unread_count = 0
+            await db.commit()
+        else:
+            db.add(ChatRoomMember(room_id=room_id, user_id=user["user_id"], unread_count=0))
             await db.commit()
 
 
@@ -524,6 +559,7 @@ async def send_message(sid, data):
         db.add(msg)
         await db.commit()
         await db.refresh(msg)
+
         msg_data = {
             "id": msg.id,
             "room_id": room_id,
@@ -532,20 +568,34 @@ async def send_message(sid, data):
             "content": content,
             "created_at": msg.created_at.isoformat() if msg.created_at else None,
         }
+
+        # Broadcast to room (spectators and those already in the socket room)
         await sio.emit("new_message", msg_data, room=f"chat_{room_id}")
 
-        # Also notify room members who aren't in the socket room
-        # (e.g. DM recipient who hasn't opened the chat yet)
+        # Always emit to the sender so they see their own message
+        # (in case they're not in the socket room e.g. after refresh)
+        await sio.emit("new_message", msg_data, to=sid)
+
+        # Increment unread_count for all members who aren't the sender
         members = (await db.execute(
-            select(ChatRoomMember.user_id).where(ChatRoomMember.room_id == room_id)
-        )).all()
-        member_ids = {m[0] for m in members}
-        for other_sid, info in online_users.items():
-            if info["user_id"] in member_ids and other_sid != sid:
-                # Check if they're already in the socket room
-                rooms_for_sid = sio.rooms(other_sid)
-                if f"chat_{room_id}" not in rooms_for_sid:
-                    await sio.emit("new_message", msg_data, to=other_sid)
+            select(ChatRoomMember).where(
+                ChatRoomMember.room_id == room_id,
+                ChatRoomMember.user_id != user["user_id"],
+            )
+        )).scalars().all()
+
+        for member in members:
+            member.unread_count = (member.unread_count or 0) + 1
+        await db.commit()
+
+        # Notify online members so their unread badges update in real-time
+        for m in members:
+            for other_sid, info in online_users.items():
+                if info["user_id"] == m.user_id:
+                    await sio.emit("unread_updated", {
+                        "room_id": room_id,
+                        "unread": m.unread_count,
+                    }, to=other_sid)
 
 
 @sio.event
@@ -656,7 +706,8 @@ async def find_match(sid, data):
                 "your_player": 2,
             }, to=sid)
 
-            await sio.emit("game_started", {
+            # Notify player 1 — send DIRECTLY to their SID
+            game_started_data = {
                 "room_code": waiting.room_code,
                 "game_slug": game_slug,
                 "game_name": game.name,
@@ -664,6 +715,14 @@ async def find_match(sid, data):
                 "state": gs.state_json,
                 "player1": p1,
                 "player2": p2,
-            }, room=waiting.room_code, skip_sid=sid)
+            }
+            for p1_sid, info in online_users.items():
+                if info["user_id"] == gs.player1_id and p1_sid != sid:
+                    await sio.emit("game_started", game_started_data, to=p1_sid)
+                    print(f" [GAME] find_match: game_started sent to P1 sid={p1_sid}")
+                    break
+            else:
+                await sio.emit("game_started", game_started_data, room=waiting.room_code, skip_sid=sid)
+                print(f" [GAME] find_match: game_started broadcast to room={waiting.room_code}")
     else:
         await create_game(sid, {"game_slug": game_slug})

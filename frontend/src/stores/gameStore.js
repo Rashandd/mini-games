@@ -74,7 +74,11 @@ const useGameStore = create((set, get) => ({
     const s = getSocket()
     if (!s) return
 
+    // Prevent duplicate listeners by cleaning up first
+    get().cleanupListeners()
+
     s.on('game_created', (data) => {
+      console.log('[GameStore] game_created received:', data)
       set({
         roomCode: data.room_code,
         gameSlug: data.game_slug,
@@ -91,6 +95,7 @@ const useGameStore = create((set, get) => ({
 
     s.on('game_joined', (data) => {
       // Player 2 receives this — set everything
+      console.log('[GameStore] game_joined received:', data)
       set({
         roomCode: data.room_code,
         gameSlug: data.game_slug,
@@ -108,6 +113,7 @@ const useGameStore = create((set, get) => ({
     // Player 1 receives this when Player 2 joins
     // Only update what changed — preserve yourPlayer=1
     s.on('game_started', (data) => {
+      console.log('[GameStore] game_started received:', data)
       const update = {
         status: data.status,
         state: data.state,

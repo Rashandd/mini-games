@@ -58,8 +58,10 @@ export default function ChatSidebar() {
     <>
       <button className="chat-toggle-btn" onClick={() => { setOpen(!open); if (!open) chat.clearUnread() }}>
         <i className="fa-solid fa-comment"></i>
-        {chat.unreadCount > 0 && (
-          <span className="chat-badge">{chat.unreadCount > 9 ? '9+' : chat.unreadCount}</span>
+        {chat.rooms.reduce((s, r) => s + (r.unread || 0), 0) > 0 && (
+          <span className="chat-badge">
+            {chat.rooms.reduce((s, r) => s + (r.unread || 0), 0) > 9 ? '9+' : chat.rooms.reduce((s, r) => s + (r.unread || 0), 0)}
+          </span>
         )}
       </button>
 
@@ -109,6 +111,9 @@ export default function ChatSidebar() {
                     <i className={`fa-solid ${r.type === 'dm' ? 'fa-user' : 'fa-users'}`}></i>
                   </span>
                   <span className="room-name">{r.name}</span>
+                  {r.unread > 0 && (
+                    <span className="room-unread-badge">{r.unread > 99 ? '99+' : r.unread}</span>
+                  )}
                 </div>
               ))}
               {chat.rooms.length === 0 && <p className="muted center">No chats yet</p>}

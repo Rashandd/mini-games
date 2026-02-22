@@ -129,6 +129,7 @@ class ChatRoomMember(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     role = Column(String(20), default="member")
     joined_at = Column(DateTime, default=datetime.utcnow)
+    unread_count = Column(Integer, default=0, nullable=False)
 
     room = relationship("ChatRoom", back_populates="members")
     user = relationship("User")

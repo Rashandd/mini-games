@@ -2,20 +2,30 @@ import { create } from 'zustand'
 import { getSocket } from '../socket'
 
 const useChatStore = create((set, get) => ({
-  rooms: [],
+  rooms: [],        // [{ id, name, type, unread }]
   activeRoomId: null,
   messages: [],
-  unreadCount: 0,
+  // Global unread = sum of all per-room unread (for the toggle badge)
+  get totalUnread() {
+    return get().rooms.reduce((sum, r) => sum + (r.unread || 0), 0)
+  },
 
   setActiveRoom: (roomId) => {
-    set({ activeRoomId: roomId, messages: [], unreadCount: 0 })
+    // Optimistically clear unread for this room in store
+    set((state) => ({
+      activeRoomId: roomId,
+      messages: [],
+      rooms: state.rooms.map((r) => r.id === roomId ? { ...r, unread: 0 } : r),
+    }))
     const s = getSocket()
     if (!s) return
     s.emit('join_chat', { room_id: roomId })
     s.emit('load_messages', { room_id: roomId })
   },
 
-  clearUnread: () => set({ unreadCount: 0 }),
+  clearUnread: () => set((state) => ({
+    rooms: state.rooms.map((r) => ({ ...r, unread: 0 })),
+  })),
 
   fetchRooms: () => {
     const s = getSocket()
@@ -69,21 +79,36 @@ const useChatStore = create((set, get) => ({
     const s = getSocket()
     if (!s) return
 
+    // room_list now includes unread count per room from DB
     s.on('room_list', (data) => set({ rooms: data.rooms }))
+
     s.on('message_history', (data) => {
       if (data.room_id === get().activeRoomId) {
         set({ messages: data.messages })
       }
     })
+
     s.on('new_message', (msg) => {
-      const { activeRoomId, unreadCount } = get()
+      const { activeRoomId } = get()
       if (msg.room_id === activeRoomId) {
-        set({ messages: [...get().messages, msg] })
-      } else {
-        // Message for a room we're not viewing — increment unread
-        set({ unreadCount: unreadCount + 1 })
+        // Deduplicate: server sends to room + directly to sender, avoid doubles
+        const msgs = get().messages
+        if (msgs.find((m) => m.id === msg.id)) return
+        set({ messages: [...msgs, msg] })
       }
+      // Per-room unread is handled via unread_updated from server
     })
+
+    // Server pushes real-time unread count update to each recipient
+    s.on('unread_updated', ({ room_id, unread }) => {
+      const { activeRoomId } = get()
+      // Don't increment if user is currently viewing that room
+      if (room_id === activeRoomId) return
+      set((state) => ({
+        rooms: state.rooms.map((r) => r.id === room_id ? { ...r, unread } : r),
+      }))
+    })
+
     s.on('dm_created', (data) => {
       get().fetchRooms()
       // Use setActiveRoom so we emit join_chat + load_messages
@@ -105,6 +130,7 @@ const useChatStore = create((set, get) => ({
     s.off('room_list')
     s.off('message_history')
     s.off('new_message')
+    s.off('unread_updated')
     s.off('dm_created')
     s.off('group_created')
     s.off('room_list_updated')
